@@ -5,20 +5,23 @@ import { useAuth } from '../contexts/AuthContext';
 import { StudioLayout } from '../components/studio/StudioLayout';
 import { TrackArrangementPanel } from '../components/studio/TrackArrangementPanel';
 import { MixerPanel } from '../components/studio/MixerPanel';
-import { AISuggestionPanel } from '../components/studio/AISuggestionPanel';  // Import TrackUploader
-import { TrackUploader } from '../components/TrackUploader';
+import { AISuggestionPanel } from '../components/studio/AISuggestionPanel';
 
 export default function MusicStudio() {
   const { id } = useParams();
-  console.log('Project id from URL params:', id);
+  console.log('MusicStudio - Project id from URL params:', id);
+  console.log('MusicStudio - Project id type:', typeof id);
+  
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
+    projectId,
     loadProject,
     connectToStudio,
     disconnectFromStudio,
     projectMetadata,
     tracks,
+    addTrack
   } = useStudio();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +39,9 @@ export default function MusicStudio() {
         setIsLoading(false);
         return;
       }
+      
       console.log('Initializing studio for project:', id);
+      
       try {
         setIsLoading(true);
         setError(null);
@@ -78,40 +83,59 @@ export default function MusicStudio() {
 
   if (isLoading) {
     return (
-      <div>
+      <div style={{ padding: '20px' }}>
         <h2>Loading Studio...</h2>
         <p>Project ID: {id}</p>
-        {error && <p>Error: {error}</p>}
+        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div>
+      <div style={{ padding: '20px' }}>
         <h2>Studio Error</h2>
-        <p>{error}</p>
+        <p style={{ color: 'red' }}>{error}</p>
         <p>Project ID: {id}</p>
+        <button onClick={() => navigate('/explore')}>Back to Explore</button>
       </div>
     );
   }
+
+  const activeProjectId = projectId || id;
+  console.log('Rendering MusicStudio with activeProjectId:', activeProjectId);
 
   return (
     <StudioLayout
       projectMetadata={projectMetadata}
       onSaveAndExit={handleSaveAndExit}
     >
-      <TrackArrangementPanel tracks={tracks} />
-      <MixerPanel tracks={tracks} />
-      <AISuggestionPanel projectId={id} />
-      {/* Pass projectId prop to TrackUploader */}
-      <TrackUploader
-        projectId={id}
-        onUploadComplete={() => {
-          // Reload the project or tracks after successful upload
-          loadProject(id);
-        }}
-      />
+      <div className="row g-4">
+        {/* Left Column - Track Arrangement WITH UPLOADER AT TOP */}
+        <div className="col-lg-8">
+          <div className="card shadow-sm border-0 p-4 mb-4">
+            <TrackArrangementPanel />
+          </div>
+        </div>
+
+        {/* Right Column - Controls */}
+        <div className="col-lg-4">
+          <div className="mb-4">
+            <MixerPanel 
+              projectId={activeProjectId}
+              initialMasterVolume={projectMetadata.master_volume}
+              initialTempo={projectMetadata.tempo}
+            />
+          </div>
+          
+          <AISuggestionPanel 
+            projectId={activeProjectId}
+            onSuggestionAccepted={(newTrack) => {
+              if (addTrack) addTrack(newTrack);
+            }}
+          />
+        </div>
+      </div>
     </StudioLayout>
   );
 }

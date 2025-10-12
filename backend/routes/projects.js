@@ -23,16 +23,71 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// FIXED: Helper function to normalize project response
-const normalizeProject = (project) => ({
-  ...project.toObject(),
-  id: project._id.toString() // Ensure frontend gets 'id' field
-});
+// CRITICAL FIX: Helper function to normalize project response - returns BOTH id and _id for compatibility
+const normalizeProject = (project) => {
+  const obj = project.toObject();
+  return {
+    ...obj,
+    id: project._id.toString(),
+    _id: project._id.toString() // Keep _id for backward compatibility
+  };
+};
 
 // FIXED: Helper function to normalize track response  
-const normalizeTrack = (track) => ({
-  ...track.toObject(),
-  id: track._id.toString()
+const normalizeTrack = (track) => {
+  const obj = track.toObject();
+  return {
+    ...obj,
+    id: track._id.toString(),
+    _id: track._id.toString()
+  };
+};
+
+// CRITICAL FIX: Move specific routes BEFORE parameterized routes
+// @route GET /api/projects/my - Get user's projects (SECURED)  
+router.get('/my', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const projects = await Project.find({
+      $or: [
+        { owner_id: userId },
+        { collaborators: userId }
+      ]
+    }).sort({ created_at: -1 });
+    
+    res.json(projects.map(normalizeProject));
+  } catch (err) {
+    console.error('Get my projects error:', err.message);
+    res.status(500).json({ msg: 'Server error' });
+  }
+});
+
+// @route POST /api/projects - Create new project (SECURED)
+router.post('/', auth, async (req, res) => {
+  const { title, description, mode, tempo, master_volume } = req.body;
+  
+  try {
+    const newProject = new Project({
+      title: title || 'Untitled Project',
+      description: description || '',
+      mode: mode || 'solo',
+      tempo: tempo || 120,
+      master_volume: master_volume || 0.8,
+      owner_id: req.user.id,
+      collaborators: []
+    });
+    
+    await newProject.save();
+    
+    // CRITICAL FIX: Return properly formatted response with both id and _id
+    const response = normalizeProject(newProject);
+    console.log('Project created with ID:', response._id);
+    
+    res.status(201).json(response);
+  } catch (err) {
+    console.error('Project creation error:', err.message);
+    res.status(500).json({ msg: 'Server error creating project' });
+  }
 });
 
 // @route GET /api/projects/:id - Get single project with tracks
@@ -84,34 +139,6 @@ router.get('/:id/tracks', async (req, res) => {
   }
 });
 
-// @route POST /api/projects - Create new project (SECURED)
-router.post('/', auth, async (req, res) => {
-  const { title, description, mode, tempo, master_volume } = req.body;
-  
-  try {
-    const newProject = new Project({
-      title: title || 'Untitled Project',
-      description: description || '',
-      mode: mode || 'solo',
-      tempo: tempo || 120,
-      master_volume: master_volume || 0.8,
-      owner_id: req.user.id,
-      collaborators: []
-    });
-    
-    await newProject.save();
-    
-    // CRITICAL FIX: Return properly formatted response
-    const response = normalizeProject(newProject);
-    console.log('Project created:', response.id);
-    
-    res.status(201).json(response);
-  } catch (err) {
-    console.error('Project creation error:', err.message);
-    res.status(500).json({ msg: 'Server error creating project' });
-  }
-});
-
 // @route PUT /api/projects/:id - Update project settings (SECURED)
 router.put('/:id', auth, async (req, res) => {
   try {
@@ -151,24 +178,6 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// @route GET /api/projects/my - Get user's projects (SECURED)  
-router.get('/my', auth, async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const projects = await Project.find({
-      $or: [
-        { owner_id: userId },
-        { collaborators: userId }
-      ]
-    }).sort({ created_at: -1 });
-    
-    res.json(projects.map(normalizeProject));
-  } catch (err) {
-    console.error('Get my projects error:', err.message);
-    res.status(500).json({ msg: 'Server error' });
-  }
-});
-
 // @route DELETE /api/projects/:id - Delete project (SECURED)
 router.delete('/:id', auth, async (req, res) => {
   try {
@@ -194,6 +203,11 @@ router.delete('/:id', auth, async (req, res) => {
 // @route POST /api/projects/:id/tracks - Upload track to project (SECURED)
 router.post('/:id/tracks', auth, upload.single('track'), async (req, res) => {
   try {
+    console.log('=== TRACK UPLOAD DEBUG ===');
+    console.log('req.params.id:', req.params.id);
+    console.log('Type:', typeof req.params.id);
+    console.log('========================');
+    
     if (!req.file) {
       return res.status(400).json({ msg: 'No audio file uploaded' });
     }
@@ -222,11 +236,14 @@ router.post('/:id/tracks', auth, upload.single('track'), async (req, res) => {
     
     await newTrack.save();
     
+    console.log('Track saved successfully:', newTrack._id);
+    
     res.status(201).json(normalizeTrack(newTrack));
   } catch (err) {
     console.error('Track upload error:', err.message);
+    console.error('Error stack:', err.stack);
     if (err.name === 'CastError') {
-      return res.status(404).json({ msg: 'Invalid project ID format' });
+      return res.status(400).json({ msg: 'Invalid project ID format' });
     }
     res.status(500).json({ msg: 'Server error uploading track' });
   }

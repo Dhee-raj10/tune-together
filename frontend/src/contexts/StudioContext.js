@@ -48,6 +48,10 @@ export function StudioProvider({ children }) {
 
   const connectToStudio = useCallback((id, metadata) => {
     if (!user) return;
+    
+    console.log('connectToStudio called with id:', id);
+    
+    // CRITICAL FIX: Set the projectId in state
     setProjectId(id);
     setProjectMetadata(metadata);
     setCollaborators([]);
@@ -102,9 +106,16 @@ export function StudioProvider({ children }) {
 
   const loadProject = useCallback(async (id) => {
     if (!id) throw new Error('Project ID is required');
+    
+    console.log('loadProject called with id:', id);
+    
     try {
       const res = await api.get(`/projects/${id}`);
       const projectData = res.data;
+      
+      // CRITICAL FIX: Set projectId in state immediately
+      setProjectId(id);
+      
       setProjectMetadata({
         title: projectData.title || 'Untitled Project',
         description: projectData.description || '',
@@ -114,11 +125,15 @@ export function StudioProvider({ children }) {
         owner_id: projectData.owner_id,
         collaborators: projectData.collaborators || []
       });
+      
       if (projectData.tracks) {
         setTracks(projectData.tracks);
       } else {
         await loadTracks(id);
       }
+      
+      console.log('Project loaded, projectId set to:', id);
+      
       return projectData;
     } catch (error) {
       toast({ title: "Failed to load project", description: error.response?.data?.msg || error.message || 'Unknown error', variant: 'destructive' });
@@ -130,6 +145,11 @@ export function StudioProvider({ children }) {
     setTracks(prev => [...prev, newTrack]);
     toast({ title: "Track added successfully", description: `"${newTrack.title}" has been added to the project`, variant: 'success' });
   }, []);
+
+  // CRITICAL: Log projectId whenever it changes
+  useEffect(() => {
+    console.log('StudioContext projectId changed to:', projectId);
+  }, [projectId]);
 
   const value = {
     projectId,
@@ -146,7 +166,7 @@ export function StudioProvider({ children }) {
     sendTrackEdit,
     setTracks,
     loadTracks,
-    loadProject, // <-- Do not remove!
+    loadProject,
     addTrack,
   };
 

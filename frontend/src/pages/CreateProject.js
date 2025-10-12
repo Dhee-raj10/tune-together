@@ -38,13 +38,21 @@ const CreateProject = () => {
 
       const newProject = await createProject(projectData);
       
-      if (newProject && newProject._id) {
-        // FIX: Navigate immediately to the Music Studio page using the MongoDB _id
-        // This starts the next part of the Solo Flow (Upload/AI).
-        navigate(`/music-studio/${newProject._id}`); 
-      } 
+      console.log('Project created:', newProject);
+      
+      // CRITICAL FIX: Use id OR _id, whichever exists
+      const projectId = newProject.id || newProject._id;
+      
+      if (projectId) {
+        console.log('Navigating to music studio with ID:', projectId);
+        navigate(`/music-studio/${projectId}`); 
+      } else {
+        console.error('No project ID returned:', newProject);
+        alert('Error: Project created but no ID returned');
+      }
     } catch (error) {
       console.error('An unexpected error occurred during submission', error);
+      alert('Failed to create project. Please try again.');
     } finally {
       setIsLoading(false);
     }
