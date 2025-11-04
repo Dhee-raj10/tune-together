@@ -1,14 +1,38 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-// Supports Collaboration Requests (Module 2)
-const CollaborationRequestSchema = new Schema({
-  project_id: { type: Schema.Types.ObjectId, ref: 'Project', required: true },
-  from_user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  to_user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  message: { type: String, maxlength: 500 },
-  status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
-  created_at: { type: Date, default: Date.now }
+const collaborationRequestSchema = new mongoose.Schema({
+  senderId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  receiverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  projectName: {
+    type: String,
+    required: true
+  },
+  projectDescription: String,
+  lookingForInstrument: String,
+  message: String,
+  status: {
+    type: String,
+    enum: ['pending', 'accepted', 'rejected', 'cancelled'],
+    default: 'pending'
+  },
+  expiresAt: {
+    type: Date,
+    default: () => Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+  }
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model('CollaborationRequest', CollaborationRequestSchema);
+// Index for faster queries
+collaborationRequestSchema.index({ receiverId: 1, status: 1 });
+collaborationRequestSchema.index({ senderId: 1 });
+
+module.exports = mongoose.model('CollaborationRequest', collaborationRequestSchema);

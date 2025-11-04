@@ -1,76 +1,86 @@
-require('dotenv').config(); // MUST BE FIRST LINE
+require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
-// ... rest of imports
-const cors = require('cors');
 const http = require('http');
-const { Server } = require('socket.io');
-const config = require('./config/default'); 
+const socketIO = require('socket.io');
+const cors = require('cors');
+const mongoose = require('mongoose');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
+
+// Initialize Socket.IO ONCE
+const io = socketIO(server, {
   cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST", "PUT", "DELETE"] 
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
-app.use(cors());
-app.use(express.json());
-
-// CRITICAL: Serve static files (audio tracks)
-app.use('/uploads', express.static('uploads')); 
-
 // Connect to MongoDB
-mongoose.connect(config.mongoURI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}).then(() => console.log('MongoDB connected successfully'))
-  .catch(err => console.error('MongoDB connection error:', err));
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tune_together')
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// API Routes
-const authRoutes = require('./routes/auth1'); // Assuming your auth routes are in auth1.js
-const projectRoutes = require('./routes/projects');
-const profileRoutes = require('./routes/profiles');
-const aiRoutes = require('./routes/ai'); 
-const learnRoutes = require('./routes/learn'); 
-const collaborationRoutes = require('./routes/collaboration'); 
+// Middleware
+app.use(cors({
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/auth', authRoutes);     
-app.use('/api/projects', projectRoutes);
-app.use('/api/profiles', profileRoutes);
-app.use('/api/ai', aiRoutes); 
-app.use('/api/learn', learnRoutes); 
-app.use('/api/collaboration', collaborationRoutes);
+// Make io available to routes
+app.locals.io = io;
 
-// Socket.IO for Real-Time Collaboration (Module 2)
-io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+// Your existing routes
+app.use('/api/auth', require('./routes/auth1'));
+app.use('/api/ai', require('./routes/ai'));
+app.use('/api/learn', require('./routes/learn'));
+app.use('/api/profiles', require('./routes/profiles'));
+app.use('/api/projects', require('./routes/projects'));
 
-  socket.on('joinProject', (projectId, userId) => {
-    socket.join(projectId);
-    console.log(`User ${userId} joined project room: ${projectId}`);
-    io.to(projectId).emit('collaboratorJoined', { userId, socketId: socket.id });
+// NEW collaboration routes
+app.use('/api/musicians', require('./routes/musicians'));
+app.use('/api/collaboration/requests', require('./routes/CollaborationRequests'));
+app.use('/api/collaboration/projects', require('./routes/collaborationProjects'));
+
+// Initialize Socket Service
+const socketService = require('./services/socketService');
+socketService.initialize(io);
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
   });
-  
-  // Real-Time DAW Synchronization
-  socket.on('transportUpdate', (data) => {
-    socket.to(data.projectId).emit('transportSync', data); 
-  });
-  
-  socket.on('trackEdit', (data) => {
-    socket.to(data.projectId).emit('trackSync', data);
-  });
-  
-  socket.on('playheadPosition', (data) => {
-    socket.to(data.projectId).volatile.emit('playheadSync', data); 
-  });
+});
 
-  socket.on('disconnect', () => {
-    console.log(`User disconnected: ${socket.id}`);
+// Error handling
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error'
   });
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📡 WebSocket server ready`);
+  console.log(`🌐 CORS enabled for: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, closing server...');
+  server.close(() => {
+    mongoose.connection.close();
+    process.exit(0);
+  });
+});
+
+module.exports = { app, server, io };

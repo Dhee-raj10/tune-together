@@ -1,110 +1,254 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Container, Card, Row, Col, Form, Button } from 'react-bootstrap';
-import { CollaboratorSelector } from '../components/CollaboratorSelector';
-import { ProfileList } from '../components/ProfileList';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
-import { toast } from '../hooks/use-toast';
 
-const FindCollaborators = () => {
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const [selectedRoles, setSelectedRoles] = useState([]);
-    const [selectedCollaborator, setSelectedCollaborator] = useState(null); // Stores the full user object
-    const [projectTitle, setProjectTitle] = useState('');
-    const [requestMessage, setRequestMessage] = useState('');
-    const [isSending, setIsSending] = useState(false);
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-    // Action from ProfileList when user clicks 'Collaborate' button
-    const handleCollaborateSelection = (profile) => {
-        setSelectedCollaborator(profile);
-        // Pre-fill the title based on the collaborator
-        setProjectTitle(`[Collab] New Project with ${profile.username}`);
-    };
+function FindCollaborators() {
+  const navigate = useNavigate();
+  const [instruments, setInstruments] = useState([]);
+  const [selectedInstrument, setSelectedInstrument] = useState('');
+  const [musicians, setMusicians] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedMusician, setSelectedMusician] = useState(null);
+  const [formData, setFormData] = useState({
+    projectName: '',
+    projectDescription: '',
+    message: ''
+  });
 
-    const handleSendRequest = async (e) => {
-        e.preventDefault();
-        if (!user || isSending || !selectedCollaborator) return;
-        setIsSending(true);
+  useEffect(() => {
+    loadInstruments();
+  }, []);
 
-        try {
-            // 1. Create the Collaboration Project (mode: 'collaboration')
-            const projectData = {
-                title: projectTitle,
-                description: `Collaboration request sent to ${selectedCollaborator.username}. Message: ${requestMessage.substring(0, 50)}...`,
-                mode: 'collaboration',
-                owner_id: user.id,
-                // Collaborator is NOT added to the project model yet.
-            };
-            
-            const newProjectRes = await api.post('/projects', projectData);
-            const newProject = newProjectRes.data;
+  const loadInstruments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/api/musicians/instruments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setInstruments(response.data.instruments);
+    } catch (error) {
+      console.error('Error loading instruments:', error);
+    }
+  };
 
-            // 2. Send the Collaboration Request
-            await api.post('/collaboration/requests', {
-                project_id: newProject.id,
-                to_user_id: selectedCollaborator.id,
-                message: requestMessage,
-            });
-
-            toast({ title: 'Request Sent!', description: `Awaiting response from ${selectedCollaborator.username}.`, variant: 'success' });
-            navigate('/profile'); 
-
-        } catch (error) {
-            console.error('Error sending request:', error);
-            const errorMsg = error.response?.data?.msg || 'Failed to send collaboration request.';
-            toast({ title: errorMsg, variant: 'error' });
-        } finally {
-            setIsSending(false);
-        }
-    };
+  const searchMusicians = async () => {
+    if (!selectedInstrument) return;
     
-    // Render the request form if a collaborator is selected (Step 2)
-    const renderRequestForm = () => (
-        <Card className="p-4 shadow mt-4 border-success">
-            <h3 className="h5 fw-bold mb-4">Send Request to {selectedCollaborator.username}</h3>
-            <p className="text-muted small">A new project will be created and a request will be sent for approval.</p>
-            <Form onSubmit={handleSendRequest}>
-                <Form.Group className="mb-3">
-                    <Form.Label>Project Title</Form.Label>
-                    <Form.Control type="text" value={projectTitle} onChange={(e) => setProjectTitle(e.target.value)} required />
-                </Form.Group>
-                <Form.Group className="mb-3">
-                    <Form.Label>Brief Message for Collaborator</Form.Label>
-                    <Form.Control as="textarea" rows={3} value={requestMessage} onChange={(e) => setRequestMessage(e.target.value)} placeholder="Describe your project and why you chose this artist." required />
-                </Form.Group>
-                <div className="d-flex justify-content-end gap-2">
-                    <Button variant="secondary" onClick={() => setSelectedCollaborator(null)}>Cancel</Button>
-                    <Button type="submit" variant="primary" disabled={isSending}>
-                        {isSending ? 'Sending...' : 'Send Request'}
-                    </Button>
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/api/musicians/search`, {
+        params: { instrument: selectedInstrument },
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMusicians(response.data.musicians);
+    } catch (error) {
+      console.error('Error searching musicians:', error);
+      alert('Failed to search musicians');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendRequest = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/collaboration/requests`, {
+        receiverId: selectedMusician.id,
+        projectName: formData.projectName,
+        projectDescription: formData.projectDescription,
+        lookingForInstrument: selectedMusician.instrument,
+        message: formData.message
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      alert('Collaboration request sent successfully!');
+      setShowModal(false);
+      setFormData({ projectName: '', projectDescription: '', message: '' });
+      navigate('/collaboration-requests');
+    } catch (error) {
+      console.error('Error sending request:', error);
+      alert(error.response?.data?.error || 'Failed to send request');
+    }
+  };
+
+  return (
+    <div className="container py-5">
+      <h1 className="mb-4">Find Collaborators</h1>
+
+      {/* Search Bar */}
+      <div className="card mb-4">
+        <div className="card-body">
+          <div className="row g-3">
+            <div className="col-md-8">
+              <select
+                className="form-select"
+                value={selectedInstrument}
+                onChange={(e) => setSelectedInstrument(e.target.value)}
+              >
+                <option value="">Select an instrument...</option>
+                {instruments.map(inst => (
+                  <option key={inst.instrument} value={inst.instrument}>
+                    {inst.instrument} ({inst.userCount} musicians)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-4">
+              <button
+                className="btn btn-primary w-100"
+                onClick={searchMusicians}
+                disabled={!selectedInstrument || loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2"></span>
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-search me-2"></i>
+                    Search
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      <div className="row g-4">
+        {musicians.map(musician => (
+          <div key={musician.id} className="col-md-4">
+            <div className="card h-100">
+              <div className="card-body">
+                <div className="d-flex align-items-center mb-3">
+                  <img
+                    src={musician.profilePicture || 'https://via.placeholder.com/50'}
+                    alt={musician.username}
+                    className="rounded-circle me-3"
+                    style={{ width: '50px', height: '50px', objectFit: 'cover' }}
+                  />
+                  <div>
+                    <h5 className="card-title mb-0">{musician.username}</h5>
+                    <small className="text-muted">
+                      {musician.instrument} • {musician.skillLevel}
+                    </small>
+                  </div>
                 </div>
-            </Form>
-        </Card>
-    );
 
-    return (
-        <Container className="py-5">
-            <h1 className="display-6 fw-bold mb-5 text-center">Find Collaborators</h1>
-            
-            <Card className="p-4 shadow mb-4">
-                <h3 className="h5 fw-bold mb-3">1. Filter by Role</h3>
-                <p className="text-muted small">What type of musician are you looking for?</p>
-                <CollaboratorSelector onSelectRoles={setSelectedRoles} />
-            </Card>
-            
-            {selectedCollaborator ? (
-                renderRequestForm()
-            ) : (
-                <>
-                    <h3 className="h5 fw-bold mb-3">2. Available Artists</h3>
-                    <ProfileList selectedRoles={selectedRoles} onCollaborate={handleCollaborateSelection} />
-                </>
-            )}
+                {musician.bio && (
+                  <p className="card-text text-muted small">
+                    {musician.bio.substring(0, 100)}
+                    {musician.bio.length > 100 && '...'}
+                  </p>
+                )}
 
-        </Container>
-    );
-};
+                <div className="d-flex justify-content-between text-muted small mb-3">
+                  <span>{musician.yearsExperience} years exp.</span>
+                  <span>{musician.projectCount} projects</span>
+                </div>
+
+                <button
+                  className="btn btn-primary w-100"
+                  onClick={() => {
+                    setSelectedMusician(musician);
+                    setShowModal(true);
+                  }}
+                >
+                  <i className="bi bi-send me-2"></i>
+                  Send Request
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {musicians.length === 0 && !loading && selectedInstrument && (
+        <div className="text-center py-5">
+          <i className="bi bi-music-note-beamed" style={{ fontSize: '4rem', opacity: 0.3 }}></i>
+          <p className="text-muted mt-3">No musicians found for {selectedInstrument}</p>
+        </div>
+      )}
+
+      {/* Request Modal */}
+      {showModal && (
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">
+                  Send Request to {selectedMusician?.username}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleSendRequest}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Project Name *</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      required
+                      value={formData.projectName}
+                      onChange={(e) => setFormData({...formData, projectName: e.target.value})}
+                      placeholder="e.g., Summer Vibes EP"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Project Description</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={formData.projectDescription}
+                      onChange={(e) => setFormData({...formData, projectDescription: e.target.value})}
+                      placeholder="Describe your project..."
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label">Personal Message</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={formData.message}
+                      onChange={(e) => setFormData({...formData, message: e.target.value})}
+                      placeholder="Why you'd like to collaborate..."
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Send Request
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default FindCollaborators;

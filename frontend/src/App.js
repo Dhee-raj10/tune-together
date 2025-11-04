@@ -13,6 +13,10 @@ import UserProfilePage from './pages/UserProfilePage';
 import NotFound from './pages/NotFound';
 import About from './pages/About';
 import Learn from './pages/Learn';
+import FindCollaborators from './pages/FindCollaborators';
+import CollaborationRequests from './pages/CollaborationRequests';
+import MyProjects from './pages/ MyProjects';
+import CollaborationWorkspace from './pages/CollaborationWorkspace';
 import LearningModule from './pages/LearningModule';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { StudioProvider } from './contexts/StudioContext';
@@ -39,6 +43,10 @@ const App = () => {
             <Route path="/about" element={<About />} />
             <Route path="/learn" element={<Learn />} />
             <Route path="/learn/module/:moduleId" element={<LearningModule />} />
+            <Route path="/find-collaborators" element={<FindCollaborators />} />
+            <Route path="/collaboration-requests" element={<CollaborationRequests />} />
+            <Route path="/my-projects" element={<MyProjects />} />
+            <Route path="/collaboration-workspace/:projectId" element={<CollaborationWorkspace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
