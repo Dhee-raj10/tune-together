@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { toast } from '../hooks/use-toast';
+import { ProgressBar, Button, Form, Card } from 'react-bootstrap';
 
 export const TrackUploader = ({ projectId, onUploadComplete }) => {
-  console.log('TrackUploader received projectId:', projectId);
-  console.log('TrackUploader projectId type:', typeof projectId);
-  
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -31,11 +29,17 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg'];
+
+    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
     if (!allowedTypes.includes(file.type)) {
-      toast({ title: 'Error', description: 'Unsupported file format', variant: 'error' });
+      toast({
+        title: 'Error',
+        description: 'Unsupported file format. Please upload MP3, WAV, or OGG files.',
+        variant: 'error',
+      });
       return;
     }
+
     setSelectedFile(file);
     const duration = await getTrackDuration(file);
     setTrackDuration(duration);
@@ -43,62 +47,62 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
 
   const uploadTrack = async () => {
     if (!selectedFile) {
-      toast({ title: 'Error', description: 'Please select a file to upload', variant: 'error' });
+      toast({
+        title: 'Error',
+        description: 'Please select a file to upload',
+        variant: 'error',
+      });
       return;
     }
 
-    // CRITICAL FIX: Validate and clean projectId
     if (!projectId) {
-      console.error('No projectId provided to TrackUploader');
-      toast({ title: 'Error', description: 'No project ID provided', variant: 'error' });
+      toast({
+        title: 'Error',
+        description: 'No project ID provided',
+        variant: 'error',
+      });
       return;
     }
-
-    // Clean the projectId - remove any extra characters, quotes, or whitespace
-    const cleanProjectId = String(projectId).trim();
-    console.log('Cleaned projectId:', cleanProjectId);
-    console.log('Upload URL will be:', `/projects/${cleanProjectId}/tracks`);
 
     const formData = new FormData();
     formData.append('track', selectedFile);
-    formData.append('title', selectedFile.name);
+    formData.append('title', selectedFile.name.replace(/\.[^/.]+$/, ''));
     formData.append('duration', trackDuration || 0);
 
     try {
       setIsUploading(true);
       setUploadProgress(0);
 
-      const token = user?.token;
+      const response = await api.post(`/projects/${projectId}/tracks`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          setUploadProgress(percentCompleted);
+        },
+      });
 
-      // CRITICAL FIX: Use cleaned projectId
-      const response = await api.post(
-        `/projects/${cleanProjectId}/tracks`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${token}`,
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            setUploadProgress(percentCompleted);
-          },
-        }
-      );
+      toast({
+        title: 'Success',
+        description: 'Track uploaded successfully!',
+        variant: 'success',
+      });
 
-      toast({ title: 'Success', description: 'Track uploaded successfully', variant: 'success' });
-      onUploadComplete(response.data);
+      if (onUploadComplete) {
+        onUploadComplete(response.data);
+      }
+
       setSelectedFile(null);
       setTrackDuration(null);
+      setUploadProgress(0);
     } catch (error) {
       console.error('Error uploading track:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Request URL was:', error.config?.url);
       toast({
         title: 'Error',
-        description: error.response?.data?.msg || 'Error: Failed to upload track',
+        description: error.response?.data?.msg || 'Failed to upload track',
         variant: 'error',
       });
     } finally {
@@ -107,16 +111,49 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
   };
 
   return (
-    <div>
-      <input type="file" accept="audio/*" onChange={handleFileSelect} />
+    <Card className="p-4 mt-3 shadow-sm rounded-4">
+      <h5 className="mb-3">Select Audio File</h5>
+      <Form.Group controlId="formFile" className="mb-3">
+        <Form.Control
+          type="file"
+          accept="audio/*"
+          onChange={handleFileSelect}
+          disabled={isUploading}
+        />
+        <Form.Text className="text-muted">
+          Supported formats: MP3, WAV, OGG (Max 50MB)
+        </Form.Text>
+      </Form.Group>
+
       {selectedFile && (
-        <div>
-          <p>Selected: {selectedFile.name}</p>
-          <button onClick={uploadTrack} disabled={isUploading}>
-            {isUploading ? `Uploading ${uploadProgress}%` : 'Upload Track'}
-          </button>
+        <div className="mt-3 border rounded p-2 bg-light">
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>{selectedFile.name}</strong>
+              <div className="text-muted small">
+                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                {trackDuration && ` • ${Math.round(trackDuration)}s`}
+              </div>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+
+      {isUploading && (
+        <div className="mt-3">
+          <ProgressBar now={uploadProgress} label={`${uploadProgress}%`} />
+        </div>
+      )}
+
+      <div className="d-flex justify-content-end mt-3">
+        <Button
+          variant="primary"
+          onClick={uploadTrack}
+          disabled={isUploading || !selectedFile}
+        >
+          {isUploading ? `Uploading ${uploadProgress}%` : 'Upload Track'}
+        </Button>
+      </div>
+    </Card>
   );
 };

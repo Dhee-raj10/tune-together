@@ -1,6 +1,6 @@
 import api from '../services/api';
 import { MusicianRoleSelector } from "../components/MusicianRoleSelector";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext({ user: null, session: null });
 
@@ -12,86 +12,128 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Login function - FIXED: Don't show role selector on login
+  // Check for existing token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    
+    if (token && storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setSession({ user: parsedUser, token });
+        api.defaults.headers.common['x-auth-token'] = token;
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Login function
   const login = async (email, password) => {
     try {
       const res = await api.post('/auth/login', { email, password });
-      const { token, user } = res.data;
+      const { token, user: userData } = res.data;
       
+      // Store token and user in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Set API default header
       api.defaults.headers.common['x-auth-token'] = token;
-      setUser(user);
-      setSession({ user, token });
       
-      // Don't show role selector on login, only for new signups
-      setShowRoleSelector(false);
+      // Update state
+      setUser(userData);
+      setSession({ user: userData, token });
       
-      return { user, error: null };
+      console.log('✅ Login successful, token stored');
+      
+      return { user: userData, error: null };
     } catch (error) {
       console.error("Login failed:", error.response?.data?.msg || error.message);
       return { user: null, error: error.response?.data?.msg || 'Invalid Credentials' };
     }
   };
 
-  // Signup function - FIXED: Always show role selector after signup
+  // Signup function
   const signup = async (username, email, password) => {
     try {
       const res = await api.post('/auth/signup', { username, email, password });
-      const { token, user } = res.data;
+      const { token, user: userData } = res.data;
       
+      // Store token and user in localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Set API default header
       api.defaults.headers.common['x-auth-token'] = token;
-      setUser(user);
-      setSession({ user, token });
       
-      // CRITICAL FIX: Always show role selector after a new signup
+      // Update state
+      setUser(userData);
+      setSession({ user: userData, token });
+      
+      // Show role selector for new signups
       setShowRoleSelector(true);
       
-      return { user, error: null };
+      console.log('✅ Signup successful, token stored');
+      
+      return { user: userData, error: null };
     } catch (error) {
       console.error("Signup failed:", error.response?.data?.msg || error.message);
       return { user: null, error: error.response?.data?.msg || 'Signup failed' };
     }
   };
 
-  // Update user roles function - FIXED: Proper ID handling
+  // Update user roles function
   const updateUserRoles = async (userId, roles) => {
     try {
-      // Calls the PUT /api/profiles/:id/roles route
       const res = await api.put(`/profiles/${userId}/roles`, { roles });
       const updatedUser = res.data;
       
-      // FIXED: Handle both _id (from MongoDB) and id fields
       const updatedUserId = updatedUser._id || updatedUser.id;
       const currentUserId = user._id || user.id;
       
       if (user && currentUserId === updatedUserId) {
-        // Update user state with proper ID mapping
         const normalizedUser = {
           ...updatedUser,
-          id: updatedUserId, // Ensure id field exists for frontend consistency
+          id: updatedUserId,
         };
+        
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(normalizedUser));
         
         setUser(normalizedUser);
         setSession(prev => ({ ...prev, user: normalizedUser }));
-        
-        // Hide the selector after successful update
         setShowRoleSelector(false);
       }
       
       return updatedUser;
     } catch (error) {
       console.error("Error updating roles:", error);
-      // Re-throw error so component can handle it
       throw new Error(error.response?.data?.msg || 'Failed to update roles');
     }
   };
 
   // Logout function
   const logout = async () => {
+    // Clear localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    
+    // Clear API header
+    delete api.defaults.headers.common['x-auth-token'];
+    
+    // Clear state
     setUser(null);
     setSession(null);
-    api.defaults.headers.common['x-auth-token'] = null;
     setShowRoleSelector(false);
+    
+    console.log('✅ Logged out successfully');
   };
 
   const value = {
@@ -100,8 +142,13 @@ export function AuthProvider({ children }) {
     login,
     signup,
     logout,
-    updateUserRoles
+    updateUserRoles,
+    isLoading
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <AuthContext.Provider value={value}>

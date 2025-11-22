@@ -1,3 +1,4 @@
+// src/pages/MusicStudio.js
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStudio } from '../contexts/StudioContext';
@@ -8,24 +9,22 @@ import { MixerPanel } from '../components/studio/MixerPanel';
 import { AISuggestionPanel } from '../components/studio/AISuggestionPanel';
 
 export default function MusicStudio() {
-  const { id } = useParams();
-  console.log('MusicStudio - Project id from URL params:', id);
-  console.log('MusicStudio - Project id type:', typeof id);
+  const { id, projectId: collabProjectId } = useParams();
+  const currentProjectId = collabProjectId || id; 
   
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
-    projectId,
+    projectId: studioContextProjectId,
     loadProject,
     connectToStudio,
     disconnectFromStudio,
     projectMetadata,
-    tracks,
     addTrack
   } = useStudio();
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isProjectLoading, setIsProjectLoading] = useState(true);
+  const [projectError, setProjectError] = useState(null);
 
   useEffect(() => {
     if (!user) {
@@ -34,91 +33,89 @@ export default function MusicStudio() {
     }
 
     const initializeStudio = async () => {
-      if (!id) {
-        setError('No project ID provided');
-        setIsLoading(false);
+      if (!currentProjectId) {
+        setProjectError('No project ID provided');
+        setIsProjectLoading(false);
         return;
       }
       
-      console.log('Initializing studio for project:', id);
-      
       try {
-        setIsLoading(true);
-        setError(null);
+        setIsProjectLoading(true);
+        setProjectError(null);
 
-        const projectData = await loadProject(id);
+        const projectData = await loadProject(currentProjectId);
         if (!projectData) {
-          setError('Project not found or access denied');
-          setIsLoading(false);
+          setProjectError('Project not found or access denied');
+          setIsProjectLoading(false);
           return;
         }
-        console.log('Project loaded successfully:', projectData);
 
-        connectToStudio(id, projectData);
-        setIsLoading(false);
+        const isCollaborative = projectData.mode === 'collaborative' || projectData.sessionId;
+        if (isCollaborative) {
+             connectToStudio(currentProjectId, projectData);
+        } else {
+             console.log('Solo project detected. Skipping Socket.IO connection.');
+        }
+
+        setIsProjectLoading(false);
       } catch (error) {
         console.error('Studio initialization failed:', error);
-        setError(error.response?.data?.msg || 'Failed to load project');
-        setIsLoading(false);
+        setProjectError(error.response?.data?.msg || 'Failed to load project');
+        setIsProjectLoading(false);
       }
     };
 
     initializeStudio();
 
     return () => {
-      console.log('Cleaning up studio connection');
       disconnectFromStudio();
     };
-  }, [id, user, loadProject, connectToStudio, disconnectFromStudio, navigate]);
+  }, [currentProjectId, user, loadProject, connectToStudio, disconnectFromStudio, navigate]);
 
   const handleSaveAndExit = () => {
-    console.log('Saving and exiting studio');
     disconnectFromStudio();
-    navigate('/dashboard');
+    navigate('/my-projects');
   };
 
   if (!user) {
     return null;
   }
 
-  if (isLoading) {
+  if (isProjectLoading) { 
     return (
       <div style={{ padding: '20px' }}>
         <h2>Loading Studio...</h2>
-        <p>Project ID: {id}</p>
-        {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+        <p>Project ID: {currentProjectId}</p>
+        {projectError && <p style={{ color: 'red' }}>Error: {projectError}</p>}
       </div>
     );
   }
 
-  if (error) {
+  if (projectError) {
     return (
       <div style={{ padding: '20px' }}>
         <h2>Studio Error</h2>
-        <p style={{ color: 'red' }}>{error}</p>
-        <p>Project ID: {id}</p>
+        <p style={{ color: 'red' }}>{projectError}</p>
+        <p>Project ID: {currentProjectId}</p>
         <button onClick={() => navigate('/explore')}>Back to Explore</button>
       </div>
     );
   }
-
-  const activeProjectId = projectId || id;
-  console.log('Rendering MusicStudio with activeProjectId:', activeProjectId);
+  
+  const activeProjectId = studioContextProjectId || currentProjectId;
 
   return (
     <StudioLayout
-      projectMetadata={projectMetadata}
+      title={projectMetadata.title || 'Loading...'}
+      mode={projectMetadata.mode}
       onSaveAndExit={handleSaveAndExit}
     >
       <div className="row g-4">
-        {/* Left Column - Track Arrangement WITH UPLOADER AT TOP */}
         <div className="col-lg-8">
           <div className="card shadow-sm border-0 p-4 mb-4">
             <TrackArrangementPanel />
           </div>
         </div>
-
-        {/* Right Column - Controls */}
         <div className="col-lg-4">
           <div className="mb-4">
             <MixerPanel 
@@ -127,7 +124,6 @@ export default function MusicStudio() {
               initialTempo={projectMetadata.tempo}
             />
           </div>
-          
           <AISuggestionPanel 
             projectId={activeProjectId}
             onSuggestionAccepted={(newTrack) => {

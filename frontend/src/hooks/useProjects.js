@@ -1,75 +1,174 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import api from '../services/api';
-import { toast } from './use-toast'; 
 
 export const useProjects = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const createProject = async (projectData) => {
-    setIsLoading(true);
-    try {
-      const res = await api.post('/projects', projectData);
-      toast({ title: 'Project created successfully!', variant: 'success' }); 
-      return res.data;
-    } catch (error) {
-      console.error('Error in createProject:', error);
-      const errorMessage = error.response?.data?.msg || 'An unexpected error occurred while creating the project';
-      toast({ title: errorMessage, variant: 'error' }); 
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const updateProjectSettings = async (projectId, settingsData) => {
-    setIsLoading(true);
+  const createProject = useCallback(async (projectData) => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      await api.put(`/projects/${projectId}`, settingsData);
-      toast({ title: 'Project settings saved!', variant: 'success' }); 
-      return true;
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please login.');
+      }
+
+      console.log('✅ Token found:', token.substring(0, 20) + '...');
+      console.log('📦 Creating project with data:', projectData);
+
+      // Make the API call (token is automatically added by interceptor)
+      const response = await api.post('/projects', projectData);
+
+      console.log('✅ Project created successfully:', response.data);
+      return response.data;
+      
     } catch (err) {
-      console.error('Project settings update error:', err);
-      const errorMessage = err.response?.data?.msg || 'An unexpected error occurred while saving settings';
-      toast({ title: errorMessage, variant: 'error' }); 
-      return false;
+      console.error('❌ Error in createProject:', err);
+      console.error('Error response:', err.response?.data);
+      console.error('Error status:', err.response?.status);
+      
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      throw err;
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  };
-  
-  const deleteProject = async (projectId) => {
-    setIsLoading(true);
-    try {
-      await api.delete(`/projects/${projectId}`); 
-      toast({ title: 'Project deleted successfully!', variant: 'success' }); 
-      return true;
-    } catch (error) {
-      console.error('Project deletion error:', error);
-      const errorMessage = error.response?.data?.msg || 'Failed to delete project.';
-      toast({ title: errorMessage, variant: 'error' });
-      return false;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, []);
 
-  const getProfilesByRoles = async (roles) => {
+  const getProject = useCallback(async (projectId) => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      const res = await api.get('/profiles', { params: { roles: roles.join(',') } });
-      return res.data;
-    } catch (error) {
-      console.error('Error fetching profiles by roles:', error);
-      const errorMessage = error.response?.data?.msg || 'Failed to load musicians';
-      toast({ title: errorMessage, variant: 'error' }); 
-      return [];
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await api.get(`/projects/${projectId}`);
+      return response.data;
+      
+    } catch (err) {
+      console.error('Error getting project:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
+
+  const getAllProjects = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await api.get('/projects');
+      return response.data;
+      
+    } catch (err) {
+      console.error('Error getting projects:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateProject = useCallback(async (projectId, updates) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await api.put(`/projects/${projectId}`, updates);
+      return response.data;
+      
+    } catch (err) {
+      console.error('Error updating project:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateProjectSettings = useCallback(async (projectId, settings) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await api.put(`/projects/${projectId}`, settings);
+      console.log('✅ Project settings updated');
+      return true;
+      
+    } catch (err) {
+      console.error('Error updating project settings:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const deleteProject = useCallback(async (projectId) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await api.delete(`/projects/${projectId}`);
+      return response.data;
+      
+    } catch (err) {
+      console.error('Error deleting project:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.msg || err.message;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   return {
-    isLoading,
     createProject,
+    getProject,
+    getAllProjects,
+    updateProject,
     updateProjectSettings,
     deleteProject,
-    getProfilesByRoles,
+    loading,
+    isLoading: loading,
+    error
   };
 };

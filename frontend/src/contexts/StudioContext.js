@@ -1,8 +1,9 @@
+// src/contexts/StudioContext.js
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import api from '../services/api';
 import { toast } from '../hooks/use-toast';
 import { useAuth } from './AuthContext';
+import api from '../services/api';
 
 const StudioContext = createContext();
 export function useStudio() { return useContext(StudioContext); }
@@ -39,60 +40,21 @@ export function StudioProvider({ children }) {
 
   const handleTrackSync = useCallback((data) => {
     if (data.userId === user?.id) return;
-    setTracks(prev => prev.map(t => t._id === data.trackId ? { ...t, ...data.changes } : t));
-    if (data.change_type === 'TEMPO' || data.change_type === 'MASTER_VOLUME') {
-      setProjectMetadata(prev => ({ ...prev, ...data.changes }));
+    
+    if (data.trackId) {
+        setTracks(prev => prev.map(t => (t.id || t._id) === data.trackId ? { ...t, ...data.updates } : t));
     }
+    
+    if (data.updates.bpm || data.updates.master_volume) {
+      setProjectMetadata(prev => ({ 
+        ...prev, 
+        tempo: data.updates.bpm || prev.tempo, 
+        master_volume: data.updates.master_volume || prev.master_volume 
+      }));
+    }
+    
     toast({ title: `${data.username} updated the project`, variant: 'default' });
   }, [user]);
-
-  const connectToStudio = useCallback((id, metadata) => {
-    if (!user) return;
-    
-    console.log('connectToStudio called with id:', id);
-    
-    // CRITICAL FIX: Set the projectId in state
-    setProjectId(id);
-    setProjectMetadata(metadata);
-    setCollaborators([]);
-    socket.connect();
-    socket.emit('joinProject', id, user.id);
-    socket.on('transportSync', handleTransportSync);
-    socket.on('trackSync', handleTrackSync);
-    socket.on('collaboratorJoined', (data) => {
-      setCollaborators(prev => [...new Set([...prev, data.userId])]);
-      toast({ title: `${data.username || 'Someone'} joined the session`, variant: 'success' });
-    });
-    socket.on('collaboratorLeft', (data) => {
-      setCollaborators(prev => prev.filter(id => id !== data.userId));
-      toast({ title: `${data.username || 'Someone'} left the session`, variant: 'default' });
-    });
-  }, [user, handleTransportSync, handleTrackSync]);
-
-  const disconnectFromStudio = useCallback(() => {
-    if (!projectId) return;
-    socket.emit('leaveProject', projectId, user?.id);
-    socket.off('transportSync', handleTransportSync);
-    socket.off('trackSync', handleTrackSync);
-    socket.off('collaboratorJoined');
-    socket.off('collaboratorLeft');
-    socket.disconnect();
-    setProjectId(null);
-    setIsPlaying(false);
-    setTracks([]);
-    setProjectMetadata({});
-    setCollaborators([]);
-  }, [projectId, user, handleTransportSync, handleTrackSync]);
-
-  const sendTransportAction = (action, time = 0) => {
-    if (!projectId) return;
-    socket.emit('transportUpdate', { projectId, action, time, userId: user.id, username: user.username });
-  };
-
-  const sendTrackEdit = (trackId, changes, change_type) => {
-    if (!projectId) return;
-    socket.emit('trackEdit', { projectId, trackId, change_type, changes, userId: user.id, username: user.username });
-  };
 
   const loadTracks = useCallback(async (id) => {
     if (!id) return;
@@ -103,27 +65,25 @@ export function StudioProvider({ children }) {
       toast({ title: "Failed to load tracks", description: error.response?.data?.msg || "Unable to fetch tracks.", variant: 'destructive' });
     }
   }, []);
-
+  
   const loadProject = useCallback(async (id) => {
     if (!id) throw new Error('Project ID is required');
-    
-    console.log('loadProject called with id:', id);
     
     try {
       const res = await api.get(`/projects/${id}`);
       const projectData = res.data;
       
-      // CRITICAL FIX: Set projectId in state immediately
       setProjectId(id);
       
       setProjectMetadata({
-        title: projectData.title || 'Untitled Project',
+        title: projectData.title || projectData.name || 'Untitled Project',
         description: projectData.description || '',
         mode: projectData.mode || 'solo',
-        tempo: projectData.tempo || 120,
+        tempo: projectData.tempo || projectData.bpm || 120,
         master_volume: projectData.master_volume || 0.8,
         owner_id: projectData.owner_id,
-        collaborators: projectData.collaborators || []
+        collaborators: projectData.collaborators || [],
+        sessionId: projectData.sessionId
       });
       
       if (projectData.tracks) {
@@ -132,8 +92,6 @@ export function StudioProvider({ children }) {
         await loadTracks(id);
       }
       
-      console.log('Project loaded, projectId set to:', id);
-      
       return projectData;
     } catch (error) {
       toast({ title: "Failed to load project", description: error.response?.data?.msg || error.message || 'Unknown error', variant: 'destructive' });
@@ -141,15 +99,94 @@ export function StudioProvider({ children }) {
     }
   }, [loadTracks]);
 
+
+  const connectToStudio = useCallback((id, metadata) => {
+    if (!user || !metadata.sessionId) return;
+
+    const token = localStorage.getItem('token');
+    socket.auth = { token };
+    
+    setProjectId(id);
+    setProjectMetadata(metadata);
+    setCollaborators([]);
+    socket.connect();
+    
+    socket.on('session-state', (data) => {
+        setTracks(data.tracks || []);
+        setCollaborators(data.users.map(u => u.userId)); 
+        setProjectMetadata(prev => ({
+            ...prev, 
+            bpm: data.bpm || prev.tempo, 
+            timeSignature: data.timeSignature || prev.timeSignature
+        }));
+        toast({ title: 'Studio session loaded.', variant: 'success' });
+    });
+    
+    socket.on('user-joined', (data) => {
+      setCollaborators(prev => [...new Set([...prev, data.userId])]);
+      toast({ title: `${data.username || 'Someone'} joined the session`, variant: 'success' });
+    });
+    
+    socket.on('user-left', (data) => {
+      setCollaborators(prev => prev.filter(uid => uid !== data.userId));
+      toast({ title: `${data.username || 'Someone'} left the session`, variant: 'default' });
+    });
+
+    socket.on('track-updated', handleTrackSync);
+    
+    socket.on('track-added', (data) => {
+        setTracks(prev => [...prev, data.track]);
+        toast({ title: `${data.username} added a track.`, variant: 'default' });
+    });
+    
+    socket.on('track-deleted', (data) => {
+        setTracks(prev => prev.filter(t => (t.id || t._id) !== data.trackId));
+        toast({ title: `Track deleted by ${data.username}.`, variant: 'default' });
+    });
+
+    socket.emit('join-session', { projectId: id, sessionId: metadata.sessionId });
+    
+  }, [user, handleTrackSync, handleTransportSync, loadProject]);
+
+  const disconnectFromStudio = useCallback(() => {
+    if (!projectId || !socket.connected) return;
+    
+    socket.emit('leave-session', { projectId, sessionId: projectMetadata.sessionId });
+    
+    socket.off('session-state');
+    socket.off('user-joined');
+    socket.off('user-left');
+    socket.off('track-updated');
+    socket.off('track-added');
+    socket.off('track-deleted');
+    
+    socket.disconnect();
+    setProjectId(null);
+    setIsPlaying(false);
+    setTracks([]);
+    setProjectMetadata({});
+    setCollaborators([]);
+  }, [projectId, projectMetadata.sessionId]);
+
+  const sendTrackEdit = (trackId, updates, change_type) => {
+    if (!projectId || !socket.connected) return;
+    
+    socket.emit('track-update', { 
+        projectId, 
+        trackId, 
+        updates, 
+        change_type, 
+        userId: user.id, 
+        username: user.username 
+    });
+    handleTrackSync({ trackId, updates, userId: user.id, username: user.username });
+  };
+
   const addTrack = useCallback((newTrack) => {
     setTracks(prev => [...prev, newTrack]);
     toast({ title: "Track added successfully", description: `"${newTrack.title}" has been added to the project`, variant: 'success' });
   }, []);
-
-  // CRITICAL: Log projectId whenever it changes
-  useEffect(() => {
-    console.log('StudioContext projectId changed to:', projectId);
-  }, [projectId]);
+  
 
   const value = {
     projectId,
@@ -162,7 +199,6 @@ export function StudioProvider({ children }) {
     socket,
     connectToStudio,
     disconnectFromStudio,
-    sendTransportAction,
     sendTrackEdit,
     setTracks,
     loadTracks,

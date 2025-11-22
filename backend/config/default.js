@@ -1,7 +1,4 @@
-// config/default.js
 module.exports = {
-    // IMPORTANT: Change this in a production environment.
-    jwtSecret: 'mySuperSecureSecretKey123',
-    // Ensure MongoDB is running or update this URI.
-    mongoURI: 'mongodb://localhost:27017/'
+    jwtSecret: process.env.JWT_SECRET || 'mySuperSecureSecretKey123',
+    mongoURI: process.env.MONGODB_URI || 'mongodb://localhost:27017/tune-together'
 };

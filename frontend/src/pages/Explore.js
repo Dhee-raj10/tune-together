@@ -65,7 +65,7 @@ const Explore = () => {
                     </Card.Text>
                     {/* FIX: Link to the Collaborator search page */}
                     <Link to="/collaborate/find" className="btn btn-primary mt-3"> 
-                      Start Collaboration
+                      Find Collaborators
                     </Link>
                   </Card.Body>
                 </Card>

@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Form, Card } from "react-bootstrap";
-import { useAuth } from "../contexts/AuthContext";
 import { Eye, EyeSlash } from "react-bootstrap-icons";
-
+import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -13,92 +13,67 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  const checkProfile = async (user) => {
+    try {
+      const inst = await api.get("/musicians/my-instruments");
+      const profile = await api.get(`/profiles/${user.id || user._id}`);
+
+      const hasInst = inst.data?.instruments?.length;
+      const hasRoles = profile.data?.roles?.length;
+
+      if (!hasInst || !hasRoles) {
+        if (window.confirm("Your profile isn't complete. Finish now?")) {
+          navigate("/profile");
+        } else navigate("/explore");
+      } else navigate("/explore");
+    } catch {
+      navigate("/explore");
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
     try {
-      const { error } = await login(email, password);
-
-      if (error) {
-        alert(error.message);
-      } else {
-        alert("Successfully logged in!");
-        navigate("/");
+      const { error, user } = await login(email, password);
+      if (error) alert(error);
+      else {
+        alert("Logged in!");
+        await checkProfile(user);
       }
-    } catch (error) {
-      alert("An unexpected error occurred");
+    } catch {
+      alert("Unexpected error");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100">
-      <div className="d-flex flex-grow-1 align-items-center justify-content-center py-5">
-        <div className="position-relative w-100 max-w-sm">
-          <Card>
-            <Card.Header>
-              <Card.Title className="text-center">Log In</Card.Title>
-              <Card.Text className="text-center text-muted">
-                Enter your email and password to log in to your account.
-              </Card.Text>
-            </Card.Header>
-            <Form onSubmit={handleSubmit}>
-              <Card.Body>
-                <div className="d-grid gap-4">
-                  <Form.Group>
-                    <Form.Label htmlFor="email">Email</Form.Label>
-                    <Form.Control
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </Form.Group>
-                  <Form.Group>
-                    <Form.Label htmlFor="password">Password</Form.Label>
-                    <div className="position-relative">
-                      <Form.Control
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                      />
-                      <Button
-                        variant="link"
-                        className="position-absolute end-0 top-0"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeSlash /> : <Eye />}
-                      </Button>
-                    </div>
-                  </Form.Group>
-                </div>
-              </Card.Body>
-              <Card.Footer className="d-grid gap-4">
-                <Button
-                  type="submit"
-                  className="w-100"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Logging in..." : "Log In"}
-                </Button>
-                <div className="text-center text-sm">
-                  Don't have an account?{" "}
-                  <Link to="/signup">
-                    Sign up
-                  </Link>
-                </div>
-              </Card.Footer>
-            </Form>
-          </Card>
+    <Card className="p-4 shadow-sm mt-4">
+      <h3 className="fw-bold mb-2">Log In</h3>
+      <Form onSubmit={handleSubmit}>
+        <Form.Group className="mb-3">
+          <Form.Label>Email</Form.Label>
+          <Form.Control type="email" value={email} onChange={e => setEmail(e.target.value)} />
+        </Form.Group>
+
+        <Form.Group className="mb-3 position-relative">
+          <Form.Label>Password</Form.Label>
+          <Form.Control type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} />
+          <Button variant="link" className="position-absolute end-0 top-0" onClick={() => setShowPassword(!showPassword)}>
+            {showPassword ? <EyeSlash /> : <Eye />}
+          </Button>
+        </Form.Group>
+
+        <Button className="w-100" type="submit" disabled={isLoading}>
+          {isLoading ? "Logging in..." : "Log In"}
+        </Button>
+
+        <div className="text-center mt-2">
+          New here? <Link to="/signup">Sign Up</Link>
         </div>
-      </div>
-    </div>
+      </Form>
+    </Card>
   );
 };
 

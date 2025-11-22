@@ -1,37 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { toast } from '../hooks/use-toast';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
-function CollaborationRequests() {
+const CollabRequestsPage = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('received');
-  const [receivedRequests, setReceivedRequests] = useState([]);
-  const [sentRequests, setSentRequests] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadRequests();
-  }, [activeTab]);
+    if (!user) {
+      console.log('❌ No user found, redirecting to login');
+      navigate('/login');
+      return;
+    }
+    
+    console.log('✅ User logged in:', user.username);
+    fetchRequests();
+  }, [user, navigate]);
 
-  const loadRequests = async () => {
+  const fetchRequests = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (activeTab === 'received') {
-        const response = await axios.get(`${API_URL}/api/collaboration/requests/received`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setReceivedRequests(response.data.requests);
-      } else {
-        const response = await axios.get(`${API_URL}/api/collaboration/requests/sent`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSentRequests(response.data.requests);
-      }
+      console.log('📥 Fetching collaboration requests...');
+      const response = await api.get('/collaboration/requests/received');
+      
+      console.log('✅ Requests received:', response.data);
+      setRequests(response.data || []);
     } catch (error) {
-      console.error('Error loading requests:', error);
+      console.error('❌ Error fetching requests:', error);
+      
+      if (error.response?.status === 401) {
+        toast({ title: "Session expired", description: "Please login again", variant: 'error' });
+        navigate('/login');
+      } else {
+        toast({
+          title: "Error", 
+          description: error.response?.data?.msg || "Failed to fetch requests.", 
+          variant: 'error'
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -39,179 +51,136 @@ function CollaborationRequests() {
 
   const handleAccept = async (requestId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_URL}/api/collaboration/requests/${requestId}/accept`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      console.log('✅ Accepting request:', requestId);
+      const response = await api.put(`/collaboration/requests/${requestId}/accept`);
 
-      alert('Request accepted! Redirecting to project...');
-      navigate(`/collaboration-workspace/${response.data.project._id}`);
+      setRequests(prev => prev.filter(req => req._id !== requestId));
+
+      toast({
+        title: "Success!", 
+        description: "Collaboration accepted! Redirecting to workspace...", 
+        variant: 'success'
+      });
+
+      setTimeout(() => {
+        navigate(
+          response.data.projectId 
+            ? `/collaboration-workspace/${response.data.projectId}`
+            : '/my-projects'
+        );
+      }, 1500);
+
     } catch (error) {
-      console.error('Error accepting request:', error);
-      alert('Failed to accept request');
+      console.error('❌ Error accepting request:', error);
+      toast({
+        title: "Error", 
+        description: error.response?.data?.msg || 'Failed to accept request.', 
+        variant: 'error'
+      });
     }
   };
 
   const handleReject = async (requestId) => {
-    if (!window.confirm('Are you sure you want to reject this request?')) return;
-
+    if (!window.confirm('Are you sure you want to decline this collaboration request?')) {
+      return;
+    }
+    
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/api/collaboration/requests/${requestId}/reject`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      console.log('❌ Rejecting request:', requestId);
+      await api.put(`/collaboration/requests/${requestId}/reject`);
+      setRequests(prev => prev.filter(req => req._id !== requestId));
 
-      alert('Request rejected');
-      loadRequests();
+      toast({ title: "Request declined", variant: 'default' });
     } catch (error) {
-      console.error('Error rejecting request:', error);
-      alert('Failed to reject request');
+      console.error('❌ Error rejecting request:', error);
+      toast({
+        title: "Error", 
+        description: error.response?.data?.msg || 'Failed to reject request.', 
+        variant: 'error'
+      });
     }
   };
 
-  const RequestCard = ({ request, type }) => {
-    const otherUser = type === 'received' 
-      ? request.senderId 
-      : request.receiverId;
-
-    const statusColors = {
-      pending: 'warning',
-      accepted: 'success',
-      rejected: 'danger'
-    };
-
+  if (loading) {
     return (
-      <div className="card mb-3">
-        <div className="card-body">
-          <div className="d-flex justify-content-between align-items-start mb-3">
-            <div className="d-flex align-items-center">
-              <img
-                src={otherUser?.profilePicture || 'https://via.placeholder.com/50'}
-                alt={otherUser?.username}
-                className="rounded-circle me-3"
-                style={{ width: '50px', height: '50px', objectFit: 'cover' }}
-              />
-              <div>
-                <h5 className="mb-0">{otherUser?.username}</h5>
-                <small className="text-muted">
-                  {type === 'received' ? 'wants to collaborate' : 'pending response'}
-                </small>
-              </div>
-            </div>
-            <span className={`badge bg-${statusColors[request.status]}`}>
-              {request.status}
-            </span>
-          </div>
-
-          <h6 className="text-primary">{request.projectName}</h6>
-          {request.projectDescription && (
-            <p className="text-muted small">{request.projectDescription}</p>
-          )}
-
-          {request.lookingForInstrument && (
-            <p className="mb-2">
-              <strong>Looking for:</strong> {request.lookingForInstrument}
-            </p>
-          )}
-
-          {request.message && (
-            <div className="bg-light p-3 rounded mb-3">
-              <small className="text-muted">{request.message}</small>
-            </div>
-          )}
-
-          <div className="d-flex justify-content-between align-items-center">
-            <small className="text-muted">
-              <i className="bi bi-clock me-1"></i>
-              {new Date(request.createdAt).toLocaleDateString()}
-            </small>
-
-            {type === 'received' && request.status === 'pending' && (
-              <div>
-                <button
-                  className="btn btn-sm btn-danger me-2"
-                  onClick={() => handleReject(request._id)}
-                >
-                  <i className="bi bi-x-circle me-1"></i>
-                  Reject
-                </button>
-                <button
-                  className="btn btn-sm btn-success"
-                  onClick={() => handleAccept(request._id)}
-                >
-                  <i className="bi bi-check-circle me-1"></i>
-                  Accept
-                </button>
-              </div>
-            )}
-          </div>
+      <>
+        <Navbar />
+        <div className="container text-center my-5">
+          <h3>Loading...</h3>
+          <p>Loading your requests...</p>
         </div>
-      </div>
+        <Footer />
+      </>
     );
-  };
+  }
 
   return (
-    <div className="container py-5">
-      <h1 className="mb-4">Collaboration Requests</h1>
+    <>
+      <Navbar />
+      <div className="container my-5">
 
-      {/* Tabs */}
-      <ul className="nav nav-tabs mb-4">
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'received' ? 'active' : ''}`}
-            onClick={() => setActiveTab('received')}
-          >
-            Received Requests
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2>Collaboration Requests</h2>
+            <p className="text-muted">Manage incoming collaboration invitations</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => navigate('/find-collaborators')}>
+            Find Collaborators
           </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${activeTab === 'sent' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sent')}
-          >
-            Sent Requests
-          </button>
-        </li>
-      </ul>
-
-      {/* Content */}
-      {loading ? (
-        <div className="text-center py-5">
-          <div className="spinner-border text-primary"></div>
         </div>
-      ) : (
-        <>
-          {activeTab === 'received' ? (
-            receivedRequests.length === 0 ? (
-              <div className="text-center py-5">
-                <i className="bi bi-inbox" style={{ fontSize: '4rem', opacity: 0.3 }}></i>
-                <p className="text-muted mt-3">No received requests</p>
-              </div>
-            ) : (
-              receivedRequests.map(request => (
-                <RequestCard key={request._id} request={request} type="received" />
-              ))
-            )
-          ) : (
-            sentRequests.length === 0 ? (
-              <div className="text-center py-5">
-                <i className="bi bi-inbox" style={{ fontSize: '4rem', opacity: 0.3 }}></i>
-                <p className="text-muted mt-3">No sent requests</p>
-              </div>
-            ) : (
-              sentRequests.map(request => (
-                <RequestCard key={request._id} request={request} type="sent" />
-              ))
-            )
-          )}
-        </>
-      )}
-    </div>
-  );
-}
 
-export default CollaborationRequests;
+        {requests.length === 0 ? (
+          <div className="text-center p-5 bg-light rounded">
+            <h4>No pending requests</h4>
+            <p>When someone sends you a collaboration request, it will appear here.</p>
+            <button className="btn btn-primary" onClick={() => navigate('/find-collaborators')}>
+              Find Musicians to Collaborate
+            </button>
+          </div>
+        ) : (
+          <>
+            <p>You have {requests.length} pending request{requests.length !== 1 ? 's' : ''}</p>
+
+            {requests.map(request => (
+              <div key={request._id} className="card mb-3 p-3">
+                <div className="d-flex align-items-center">
+                  <img
+                    src={request.senderId?.avatar_url || 'https://via.placeholder.com/60'}
+                    className="rounded-circle me-3"
+                    alt="User Avatar"
+                    style={{ width: '60px', height: '60px', objectFit: 'cover', border: '3px solid #e9ecef' }}
+                  />
+
+                  <div className="flex-grow-1">
+                    <h5>{request.senderId?.username || 'Unknown User'} wants to collaborate</h5>
+                    <p><strong>Project:</strong> {request.projectName || 'Untitled Project'}</p>
+
+                    {request.lookingForInstrument && <p><strong>Looking for:</strong> {request.lookingForInstrument}</p>}
+                    {request.projectDescription && <p><strong>Project Goal:</strong> {request.projectDescription}</p>}
+                    {request.message && <p><strong>Personal Message:</strong> "{request.message}"</p>}
+
+                    <small className="text-muted">
+                      Received {new Date(request.createdAt).toLocaleDateString()} at {new Date(request.createdAt).toLocaleTimeString()}
+                    </small>
+                  </div>
+
+                  <div className="ms-3">
+                    <button className="btn btn-outline-danger me-2" onClick={() => handleReject(request._id)}>
+                      Decline
+                    </button>
+                    <button className="btn btn-success" onClick={() => handleAccept(request._id)}>
+                      Accept & Start Collaborating
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+      <Footer />
+    </>
+  );
+};
+
+export default CollabRequestsPage;

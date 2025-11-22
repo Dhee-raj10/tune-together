@@ -1,223 +1,131 @@
-// backend/routes/collaborationRequests.js
+// routes/CollaborationRequests.js
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/auth');
 const CollaborationRequest = require('../models/CollaborationRequest');
 const CollaborationProject = require('../models/CollaborationProject');
+const { v4: uuidv4 } = require('uuid');
 
-// Simple inline auth middleware
-const authenticate = (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    const jwt = require('jsonwebtoken');
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = {
-      _id: decoded.userId || decoded.id || decoded._id,
-      id: decoded.userId || decoded.id || decoded._id,
-      username: decoded.username || decoded.name
-    };
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
-  }
-};
+const generateSessionId = () => `session-${uuidv4()}`;
 
-// Send collaboration request
-router.post('/', authenticate, async (req, res) => {
-  try {
-    const {
-      receiverId,
-      projectName,
-      projectDescription,
-      lookingForInstrument,
-      message
-    } = req.body;
-    const senderId = req.user._id || req.user.id;
+// @route POST /api/collaboration/requests (SECURED) - Send Request
+router.post('/', auth, async (req, res) => {
+    const { receiverId, projectName, projectDescription, lookingForInstrument, message } = req.body;
 
-    if (!receiverId || !projectName) {
-      return res.status(400).json({ error: 'receiverId and projectName are required' });
+    if (req.user.id === receiverId) {
+        return res.status(400).json({ msg: "Cannot send a collaboration request to yourself." });
     }
 
-    if (senderId.toString() === receiverId.toString()) {
-      return res.status(400).json({ error: 'Cannot send request to yourself' });
+    try {
+        const newRequest = new CollaborationRequest({
+            senderId: req.user.id,
+            receiverId,
+            projectName,
+            projectDescription,
+            lookingForInstrument,
+            message,
+            status: 'pending'
+        });
+
+        await newRequest.save();
+        res.status(201).json({ msg: 'Collaboration request sent successfully.', request: newRequest });
+
+    } catch (err) {
+        console.error('Error sending collaboration request:', err.message);
+        res.status(500).send('Server error');
     }
-
-    // Check for existing pending request
-    const existing = await CollaborationRequest.findOne({
-      senderId,
-      receiverId,
-      status: 'pending'
-    });
-
-    if (existing) {
-      return res.status(400).json({ 
-        error: 'You already have a pending request to this user' 
-      });
-    }
-
-    const request = new CollaborationRequest({
-      senderId,
-      receiverId,
-      projectName,
-      projectDescription: projectDescription || '',
-      lookingForInstrument: lookingForInstrument || '',
-      message: message || ''
-    });
-
-    await request.save();
-
-    res.status(201).json({ request });
-  } catch (error) {
-    console.error('Send request error:', error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
-// Get received requests
-router.get('/received', authenticate, async (req, res) => {
-  try {
-    const userId = req.user._id || req.user.id;
-    const { status = 'pending' } = req.query;
+// @route GET /api/collaboration/requests/received (SECURED)
+router.get('/received', auth, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const requests = await CollaborationRequest.find({
+            receiverId: userId,
+            status: 'pending'
+        })
+        .populate('senderId', 'username avatar_url')
+        .sort({ createdAt: -1 });
 
-    const requests = await CollaborationRequest.find({
-      receiverId: userId,
-      status
-    })
-      .populate('senderId', 'username profilePicture')
-      .sort({ createdAt: -1 });
-
-    res.json({ requests });
-  } catch (error) {
-    console.error('Get received requests error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get sent requests
-router.get('/sent', authenticate, async (req, res) => {
-  try {
-    const userId = req.user._id || req.user.id;
-
-    const requests = await CollaborationRequest.find({
-      senderId: userId
-    })
-      .populate('receiverId', 'username profilePicture')
-      .sort({ createdAt: -1 });
-
-    res.json({ requests });
-  } catch (error) {
-    console.error('Get sent requests error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Accept request
-router.post('/:requestId/accept', authenticate, async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const userId = req.user._id || req.user.id;
-
-    const request = await CollaborationRequest.findOne({
-      _id: requestId,
-      receiverId: userId,
-      status: 'pending'
-    });
-
-    if (!request) {
-      return res.status(404).json({ error: 'Request not found or already processed' });
+        res.json(requests);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
     }
+});
 
-    // Update request status
-    request.status = 'accepted';
-    await request.save();
 
-    // Create collaboration project
-    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    const project = new CollaborationProject({
-      name: request.projectName,
-      description: request.projectDescription || '',
-      requestId: request._id,
-      sessionId,
-      collaborators: [
-        {
-          userId: request.senderId,
-          role: 'creator',
-          permissions: 'admin'
-        },
-        {
-          userId: request.receiverId,
-          role: request.lookingForInstrument || 'collaborator',
-          permissions: 'edit'
+// @route PUT /api/collaboration/requests/:id/accept (SECURED) - Accept Request
+router.put('/:id/accept', auth, async (req, res) => {
+    try {
+        const request = await CollaborationRequest.findById(req.params.id)
+            .populate('senderId', 'username')
+            .populate('receiverId', 'username');
+
+        if (!request) return res.status(404).json({ msg: 'Request not found.' });
+        if (request.receiverId._id.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'Unauthorized action.' });
         }
-      ],
-      tracks: []
-    });
+        if (request.status !== 'pending') {
+            return res.status(400).json({ msg: 'Request already processed.' });
+        }
 
-    await project.save();
+        // 1. Update request status
+        request.status = 'accepted';
+        await request.save();
 
-    res.json({ project, sessionId });
-  } catch (error) {
-    console.error('Accept request error:', error);
-    res.status(500).json({ error: error.message });
-  }
+        // 2. Create a new CollaborationProject
+        const newCollabProject = new CollaborationProject({
+            name: request.projectName || 'New Collaborative Project',
+            description: request.projectDescription,
+            requestId: request._id,
+            sessionId: generateSessionId(),
+            collaborators: [
+                { userId: request.receiverId._id, role: 'creator', permissions: 'admin' }, 
+                { userId: request.senderId._id, role: 'collaborator', permissions: 'edit' }  
+            ],
+            bpm: 120,
+        });
+
+        await newCollabProject.save();
+
+        // 3. Respond with the new project details for redirection
+        res.json({
+            msg: 'Collaboration accepted and project created successfully.',
+            projectId: newCollabProject._id,
+            projectName: newCollabProject.name
+        });
+
+    } catch (err) {
+        console.error('Error accepting collaboration request:', err.message);
+        res.status(500).send('Server error');
+    }
 });
 
-// Reject request
-router.post('/:requestId/reject', authenticate, async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const userId = req.user._id || req.user.id;
+// @route PUT /api/collaboration/requests/:id/reject (SECURED) - Reject Request
+router.put('/:id/reject', auth, async (req, res) => {
+    try {
+        const request = await CollaborationRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ msg: 'Request not found.' });
+        
+        // Ensure only the intended receiver can reject the request
+        if (request.receiverId.toString() !== req.user.id) {
+            return res.status(403).json({ msg: 'Unauthorized action.' });
+        }
+        
+        if (request.status !== 'pending') {
+            return res.status(400).json({ msg: 'Request already processed.' });
+        }
 
-    const request = await CollaborationRequest.findOneAndUpdate(
-      {
-        _id: requestId,
-        receiverId: userId,
-        status: 'pending'
-      },
-      { status: 'rejected' },
-      { new: true }
-    );
+        request.status = 'rejected';
+        await request.save();
 
-    if (!request) {
-      return res.status(404).json({ error: 'Request not found or already processed' });
+        res.json({ msg: 'Request rejected successfully.' });
+
+    } catch (err) {
+        console.error('Error rejecting collaboration request:', err.message);
+        res.status(500).send('Server error');
     }
-
-    res.json({ message: 'Request rejected' });
-  } catch (error) {
-    console.error('Reject request error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Cancel sent request (optional)
-router.post('/:requestId/cancel', authenticate, async (req, res) => {
-  try {
-    const { requestId } = req.params;
-    const userId = req.user._id || req.user.id;
-
-    const request = await CollaborationRequest.findOneAndUpdate(
-      {
-        _id: requestId,
-        senderId: userId,
-        status: 'pending'
-      },
-      { status: 'cancelled' },
-      { new: true }
-    );
-
-    if (!request) {
-      return res.status(404).json({ error: 'Request not found or already processed' });
-    }
-
-    res.json({ message: 'Request cancelled' });
-  } catch (error) {
-    console.error('Cancel request error:', error);
-    res.status(500).json({ error: error.message });
-  }
 });
 
 module.exports = router;

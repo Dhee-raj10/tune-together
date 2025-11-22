@@ -10,7 +10,7 @@ const trackSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
-  audioFileUrl: String,
+  audioFileUrl: String, // File path to uploaded audio
   notes: {
     type: mongoose.Schema.Types.Mixed,
     default: []
@@ -42,6 +42,19 @@ const trackSchema = new mongoose.Schema({
   trackOrder: {
     type: Number,
     default: 0
+  },
+  duration: {
+    type: Number,
+    default: 0
+  },
+  // ✅ Add these fields for proper tracking
+  isAIGenerated: {
+    type: Boolean,
+    default: false
+  },
+  aiMetadata: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
   }
 }, { timestamps: true });
 
@@ -86,7 +99,7 @@ const collaborationProjectSchema = new mongoose.Schema({
     unique: true
   },
   collaborators: [collaboratorSchema],
-  tracks: [trackSchema],
+  tracks: [trackSchema], // ✅ This stores all tracks
   bpm: {
     type: Number,
     default: 120,

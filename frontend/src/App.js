@@ -1,3 +1,4 @@
+// src/App.js
 import { Toaster } from 'sonner';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
@@ -14,13 +15,13 @@ import NotFound from './pages/NotFound';
 import About from './pages/About';
 import Learn from './pages/Learn';
 import FindCollaborators from './pages/FindCollaborators';
-import CollaborationRequests from './pages/CollaborationRequests';
-import MyProjects from './pages/ MyProjects';
-import CollaborationWorkspace from './pages/CollaborationWorkspace';
+import CollabRequestsPage from './pages/CollaborationRequests'; // <-- FIX: Renamed import
+import MyProjects from './pages/MyProjects';
 import LearningModule from './pages/LearningModule';
+import SoloProjectFlow from './pages/SoloProjectFlow';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { StudioProvider } from './contexts/StudioContext';
-// Create a new QueryClient instance
+
 const queryClient = new QueryClient();
 
 const App = () => {
@@ -35,6 +36,7 @@ const App = () => {
             <Route path="/explore" element={<Explore />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/create/solo" element={<SoloProjectFlow />} />
             <Route path="/create/:mode" element={<CreateProject />} />
             <Route path="/project/:id" element={<ProjectDetails />} />
             <Route path="/music-studio/:id" element={<MusicStudio />} />
@@ -44,9 +46,13 @@ const App = () => {
             <Route path="/learn" element={<Learn />} />
             <Route path="/learn/module/:moduleId" element={<LearningModule />} />
             <Route path="/find-collaborators" element={<FindCollaborators />} />
-            <Route path="/collaboration-requests" element={<CollaborationRequests />} />
+            <Route path="/my-requests" element={<CollabRequestsPage />} />
+            <Route path="/requests" element={<CollabRequestsPage />} /> {/* <-- FIX: Used new component name */}
             <Route path="/my-projects" element={<MyProjects />} />
-            <Route path="/collaboration-workspace/:projectId" element={<CollaborationWorkspace />} />
+            <Route path="/music-studio/:id" element={<MusicStudio />} />
+            <Route path="/studio/:id" element={<MusicStudio />} />
+            <Route path="/collaboration-workspace/:projectId" element={<MusicStudio />} />
+
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
