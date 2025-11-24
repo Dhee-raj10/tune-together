@@ -1,8 +1,7 @@
+// src/components/studio/StudioLayout.js - FIXED VERSION
 import { Link } from "react-router-dom";
 import { Navbar } from "../Navbar";
 import { DeleteProjectButton } from "./DeleteProjectButton";
-
-
 
 export const StudioLayout = ({
   children,
@@ -10,7 +9,7 @@ export const StudioLayout = ({
   mode,
   onDelete,
   isDeleting,
-  onRequestSaveAndExit,
+  onRequestSaveAndExit, // ✅ Keep this name
   isRequestingExit,
   canExitImmediately
 }) => {
@@ -18,6 +17,19 @@ export const StudioLayout = ({
     if (canExitImmediately) return "Save & Exit";
     if (isRequestingExit) return "Request Pending...";
     return "Request Save & Exit";
+  };
+
+  // ✅ ADD: Debug handler
+  const handleExitClick = () => {
+    console.log('🔘 StudioLayout: Exit button clicked');
+    console.log('   onRequestSaveAndExit:', typeof onRequestSaveAndExit);
+    
+    if (typeof onRequestSaveAndExit === 'function') {
+      console.log('   ✅ Calling onRequestSaveAndExit...');
+      onRequestSaveAndExit();
+    } else {
+      console.error('   ❌ onRequestSaveAndExit is not a function!');
+    }
   };
 
   return (
@@ -36,8 +48,10 @@ export const StudioLayout = ({
               <span className="small text-muted">
                 {mode} mode
               </span>
+              
+              {/* ✅ FIXED: Button with debug handler */}
               <button
-                onClick={onRequestSaveAndExit}
+                onClick={handleExitClick}
                 disabled={!canExitImmediately && isRequestingExit}
                 className="btn btn-primary d-flex align-items-center gap-2"
               >
@@ -48,7 +62,10 @@ export const StudioLayout = ({
                 )}
                 {getSaveButtonText()}
               </button>
-              <DeleteProjectButton onDelete={onDelete} isDeleting={isDeleting} />
+              
+              {onDelete && (
+                <DeleteProjectButton onDelete={onDelete} isDeleting={isDeleting} />
+              )}
             </div>
           </div>
           {children}

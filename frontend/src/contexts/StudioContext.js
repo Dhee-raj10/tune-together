@@ -1,4 +1,4 @@
-// src/contexts/StudioContext.js
+// src/contexts/StudioContext.js - FIXED VERSION
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { toast } from '../hooks/use-toast';
@@ -42,7 +42,7 @@ export function StudioProvider({ children }) {
     if (data.userId === user?.id) return;
     
     if (data.trackId) {
-        setTracks(prev => prev.map(t => (t.id || t._id) === data.trackId ? { ...t, ...data.updates } : t));
+      setTracks(prev => prev.map(t => (t.id || t._id) === data.trackId ? { ...t, ...data.updates } : t));
     }
     
     if (data.updates.bpm || data.updates.master_volume) {
@@ -56,49 +56,131 @@ export function StudioProvider({ children }) {
     toast({ title: `${data.username} updated the project`, variant: 'default' });
   }, [user]);
 
-  const loadTracks = useCallback(async (id) => {
+  // ✅ FIXED: Smart track loading based on project type
+  const loadTracks = useCallback(async (id, isCollaborative = false) => {
     if (!id) return;
+    
     try {
-      const res = await api.get(`/projects/${id}/tracks`);
-      setTracks(res.data || []);
+      console.log('📥 Loading tracks for project:', id);
+      console.log('   Type:', isCollaborative ? 'COLLABORATIVE' : 'SOLO');
+      
+      let res;
+      
+      if (isCollaborative) {
+        // ✅ Use collaborative endpoint
+        console.log('   Endpoint: /collaboration/projects/:id/tracks');
+        res = await api.get(`/collaboration/projects/${id}/tracks`);
+      } else {
+        // ✅ Use solo endpoint
+        console.log('   Endpoint: /projects/:id/tracks');
+        res = await api.get(`/projects/${id}/tracks`);
+      }
+      
+      const loadedTracks = res.data || [];
+      console.log(`✅ Loaded ${loadedTracks.length} tracks`);
+      
+      setTracks(loadedTracks);
+      
     } catch (error) {
-      toast({ title: "Failed to load tracks", description: error.response?.data?.msg || "Unable to fetch tracks.", variant: 'destructive' });
+      console.error('❌ Failed to load tracks:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Message:', error.response?.data?.msg);
+      
+      toast({ 
+        title: "Failed to load tracks", 
+        description: error.response?.data?.msg || "Unable to fetch tracks.", 
+        variant: 'destructive' 
+      });
     }
   }, []);
   
+  // ✅ FIXED: Determine project type and load accordingly
   const loadProject = useCallback(async (id) => {
     if (!id) throw new Error('Project ID is required');
     
     try {
-      const res = await api.get(`/projects/${id}`);
-      const projectData = res.data;
+      console.log('📂 Loading project:', id);
+      
+      // ✅ STEP 1: Try loading as collaborative project first
+      let projectData = null;
+      let isCollaborative = false;
+      
+      try {
+        console.log('   Trying: /collaboration/projects/:id');
+        const collabRes = await api.get(`/collaboration/projects/${id}`);
+        projectData = collabRes.data.project || collabRes.data;
+        isCollaborative = true;
+        console.log('✅ Found as COLLABORATIVE project');
+      } catch (error) {
+        if (error.response?.status === 404 || error.response?.status === 403) {
+          console.log('   Not a collaborative project, trying solo...');
+          
+          // ✅ STEP 2: Try loading as solo project
+          try {
+            console.log('   Trying: /projects/:id');
+            const soloRes = await api.get(`/projects/${id}`);
+            projectData = soloRes.data;
+            isCollaborative = false;
+            console.log('✅ Found as SOLO project');
+          } catch (soloError) {
+            console.error('❌ Not found in solo projects either');
+            throw soloError;
+          }
+        } else {
+          throw error;
+        }
+      }
+      
+      if (!projectData) {
+        throw new Error('Project data is null');
+      }
+      
+      console.log('📊 Project data:', projectData);
       
       setProjectId(id);
       
+      // ✅ STEP 3: Set metadata with normalized field names
       setProjectMetadata({
         title: projectData.title || projectData.name || 'Untitled Project',
+        name: projectData.name || projectData.title || 'Untitled Project',
         description: projectData.description || '',
-        mode: projectData.mode || 'solo',
+        mode: isCollaborative ? 'collaborative' : (projectData.mode || 'solo'),
         tempo: projectData.tempo || projectData.bpm || 120,
+        bpm: projectData.bpm || projectData.tempo || 120,
         master_volume: projectData.master_volume || 0.8,
         owner_id: projectData.owner_id,
         collaborators: projectData.collaborators || [],
-        sessionId: projectData.sessionId
+        sessionId: projectData.sessionId,
+        timeSignature: projectData.timeSignature || '4/4',
+        keySignature: projectData.keySignature || '',
+        isCollaborative: isCollaborative
       });
       
-      if (projectData.tracks) {
+      // ✅ STEP 4: Load tracks with correct endpoint
+      if (projectData.tracks && Array.isArray(projectData.tracks) && projectData.tracks.length > 0) {
+        console.log(`✅ Project has ${projectData.tracks.length} tracks embedded`);
         setTracks(projectData.tracks);
       } else {
-        await loadTracks(id);
+        console.log('⚠️ No embedded tracks, fetching separately...');
+        await loadTracks(id, isCollaborative);
       }
       
       return projectData;
+      
     } catch (error) {
-      toast({ title: "Failed to load project", description: error.response?.data?.msg || error.message || 'Unknown error', variant: 'destructive' });
+      console.error('❌ Load project error:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Data:', error.response?.data);
+      
+      toast({ 
+        title: "Failed to load project", 
+        description: error.response?.data?.msg || error.message || 'Unknown error', 
+        variant: 'destructive' 
+      });
+      
       throw error;
     }
   }, [loadTracks]);
-
 
   const connectToStudio = useCallback((id, metadata) => {
     if (!user || !metadata.sessionId) return;
@@ -112,14 +194,22 @@ export function StudioProvider({ children }) {
     socket.connect();
     
     socket.on('session-state', (data) => {
-        setTracks(data.tracks || []);
-        setCollaborators(data.users.map(u => u.userId)); 
-        setProjectMetadata(prev => ({
-            ...prev, 
-            bpm: data.bpm || prev.tempo, 
-            timeSignature: data.timeSignature || prev.timeSignature
-        }));
-        toast({ title: 'Studio session loaded.', variant: 'success' });
+      console.log('📡 Received session-state:', data);
+      
+      // ✅ Tracks from Socket.IO should override local state
+      if (data.tracks && Array.isArray(data.tracks)) {
+        console.log(`✅ Socket.IO provided ${data.tracks.length} tracks`);
+        setTracks(data.tracks);
+      }
+      
+      setCollaborators(data.users.map(u => u.userId)); 
+      setProjectMetadata(prev => ({
+        ...prev, 
+        bpm: data.bpm || prev.tempo, 
+        timeSignature: data.timeSignature || prev.timeSignature
+      }));
+      
+      toast({ title: 'Studio session loaded.', variant: 'success' });
     });
     
     socket.on('user-joined', (data) => {
@@ -135,13 +225,15 @@ export function StudioProvider({ children }) {
     socket.on('track-updated', handleTrackSync);
     
     socket.on('track-added', (data) => {
-        setTracks(prev => [...prev, data.track]);
-        toast({ title: `${data.username} added a track.`, variant: 'default' });
+      console.log('📡 Track added via Socket.IO:', data.track);
+      setTracks(prev => [...prev, data.track]);
+      toast({ title: `${data.username} added a track.`, variant: 'default' });
     });
     
     socket.on('track-deleted', (data) => {
-        setTracks(prev => prev.filter(t => (t.id || t._id) !== data.trackId));
-        toast({ title: `Track deleted by ${data.username}.`, variant: 'default' });
+      console.log('📡 Track deleted via Socket.IO:', data.trackId);
+      setTracks(prev => prev.filter(t => (t.id || t._id) !== data.trackId));
+      toast({ title: `Track deleted by ${data.username}.`, variant: 'default' });
     });
 
     socket.emit('join-session', { projectId: id, sessionId: metadata.sessionId });
@@ -172,21 +264,25 @@ export function StudioProvider({ children }) {
     if (!projectId || !socket.connected) return;
     
     socket.emit('track-update', { 
-        projectId, 
-        trackId, 
-        updates, 
-        change_type, 
-        userId: user.id, 
-        username: user.username 
+      projectId, 
+      trackId, 
+      updates, 
+      change_type, 
+      userId: user.id, 
+      username: user.username 
     });
     handleTrackSync({ trackId, updates, userId: user.id, username: user.username });
   };
 
   const addTrack = useCallback((newTrack) => {
+    console.log('➕ Adding track to context:', newTrack);
     setTracks(prev => [...prev, newTrack]);
-    toast({ title: "Track added successfully", description: `"${newTrack.title}" has been added to the project`, variant: 'success' });
+    toast({ 
+      title: "Track added successfully", 
+      description: `"${newTrack.title || newTrack.name}" has been added to the project`, 
+      variant: 'success' 
+    });
   }, []);
-  
 
   const value = {
     projectId,
