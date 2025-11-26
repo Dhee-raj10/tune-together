@@ -56,9 +56,12 @@ export function StudioProvider({ children }) {
     toast({ title: `${data.username} updated the project`, variant: 'default' });
   }, [user]);
 
-  // ✅ FIXED: Smart track loading based on project type
+  // ✅ CRITICAL FIX: Smart track loading with proper endpoint detection
   const loadTracks = useCallback(async (id, isCollaborative = false) => {
-    if (!id) return;
+    if (!id) {
+      console.log('⚠️ No project ID provided');
+      return;
+    }
     
     try {
       console.log('📥 Loading tracks for project:', id);
@@ -67,19 +70,36 @@ export function StudioProvider({ children }) {
       let res;
       
       if (isCollaborative) {
-        // ✅ Use collaborative endpoint
+        // ✅ Collaborative projects: Use collaboration endpoint
         console.log('   Endpoint: /collaboration/projects/:id/tracks');
         res = await api.get(`/collaboration/projects/${id}/tracks`);
       } else {
-        // ✅ Use solo endpoint
+        // ✅ Solo projects: Use standard projects endpoint
         console.log('   Endpoint: /projects/:id/tracks');
         res = await api.get(`/projects/${id}/tracks`);
       }
       
       const loadedTracks = res.data || [];
-      console.log(`✅ Loaded ${loadedTracks.length} tracks`);
+      console.log(`✅ Loaded ${loadedTracks.length} tracks from database`);
       
-      setTracks(loadedTracks);
+      // ✅ CRITICAL: Format tracks consistently
+      const formattedTracks = loadedTracks.map(track => ({
+        id: track._id || track.id,
+        _id: track._id || track.id,
+        title: track.title || track.name,
+        name: track.name || track.title,
+        file_url: track.file_url || track.audioFileUrl,
+        audioFileUrl: track.audioFileUrl || track.file_url,
+        duration: track.duration || 0,
+        instrument: track.instrument || 'Unknown',
+        isAIGenerated: track.isAIGenerated || false,
+        createdAt: track.createdAt || track.created_at
+      }));
+      
+      console.log('📊 Formatted tracks:', formattedTracks.length);
+      setTracks(formattedTracks);
+      
+      return formattedTracks;
       
     } catch (error) {
       console.error('❌ Failed to load tracks:', error);
@@ -91,20 +111,23 @@ export function StudioProvider({ children }) {
         description: error.response?.data?.msg || "Unable to fetch tracks.", 
         variant: 'destructive' 
       });
+      
+      return [];
     }
   }, []);
   
-  // ✅ FIXED: Determine project type and load accordingly
+  // ✅ CRITICAL FIX: Determine project type and load accordingly
   const loadProject = useCallback(async (id) => {
     if (!id) throw new Error('Project ID is required');
     
     try {
+      setProjectId(id);
       console.log('📂 Loading project:', id);
       
-      // ✅ STEP 1: Try loading as collaborative project first
       let projectData = null;
       let isCollaborative = false;
       
+      // ✅ STEP 1: Try collaborative first
       try {
         console.log('   Trying: /collaboration/projects/:id');
         const collabRes = await api.get(`/collaboration/projects/${id}`);
@@ -115,7 +138,7 @@ export function StudioProvider({ children }) {
         if (error.response?.status === 404 || error.response?.status === 403) {
           console.log('   Not a collaborative project, trying solo...');
           
-          // ✅ STEP 2: Try loading as solo project
+          // ✅ STEP 2: Try solo project
           try {
             console.log('   Trying: /projects/:id');
             const soloRes = await api.get(`/projects/${id}`);
@@ -137,9 +160,7 @@ export function StudioProvider({ children }) {
       
       console.log('📊 Project data:', projectData);
       
-      setProjectId(id);
-      
-      // ✅ STEP 3: Set metadata with normalized field names
+      // ✅ STEP 3: Set metadata
       setProjectMetadata({
         title: projectData.title || projectData.name || 'Untitled Project',
         name: projectData.name || projectData.title || 'Untitled Project',
@@ -156,14 +177,11 @@ export function StudioProvider({ children }) {
         isCollaborative: isCollaborative
       });
       
-      // ✅ STEP 4: Load tracks with correct endpoint
-      if (projectData.tracks && Array.isArray(projectData.tracks) && projectData.tracks.length > 0) {
-        console.log(`✅ Project has ${projectData.tracks.length} tracks embedded`);
-        setTracks(projectData.tracks);
-      } else {
-        console.log('⚠️ No embedded tracks, fetching separately...');
-        await loadTracks(id, isCollaborative);
-      }
+      // ✅ CRITICAL FIX: Always load tracks from database
+      console.log('⚠️ Loading tracks from database (not embedded data)');
+      const loadedTracks = await loadTracks(id, isCollaborative);
+      
+      console.log(`✅ Successfully loaded ${loadedTracks.length} tracks from database`);
       
       return projectData;
       
@@ -196,10 +214,23 @@ export function StudioProvider({ children }) {
     socket.on('session-state', (data) => {
       console.log('📡 Received session-state:', data);
       
-      // ✅ Tracks from Socket.IO should override local state
+      // ✅ For collaborative projects, tracks from socket override local
       if (data.tracks && Array.isArray(data.tracks)) {
         console.log(`✅ Socket.IO provided ${data.tracks.length} tracks`);
-        setTracks(data.tracks);
+        
+        const formattedTracks = data.tracks.map(track => ({
+          id: track._id || track.id,
+          _id: track._id || track.id,
+          title: track.name || track.title,
+          name: track.name || track.title,
+          file_url: track.audioFileUrl || track.file_url,
+          audioFileUrl: track.audioFileUrl || track.file_url,
+          duration: track.duration || 0,
+          instrument: track.instrument || 'Unknown',
+          isAIGenerated: track.isAIGenerated || false
+        }));
+        
+        setTracks(formattedTracks);
       }
       
       setCollaborators(data.users.map(u => u.userId)); 
@@ -226,7 +257,20 @@ export function StudioProvider({ children }) {
     
     socket.on('track-added', (data) => {
       console.log('📡 Track added via Socket.IO:', data.track);
-      setTracks(prev => [...prev, data.track]);
+      
+      const formattedTrack = {
+        id: data.track._id || data.track.id,
+        _id: data.track._id || data.track.id,
+        title: data.track.name || data.track.title,
+        name: data.track.name || data.track.title,
+        file_url: data.track.audioFileUrl || data.track.file_url,
+        audioFileUrl: data.track.audioFileUrl || data.track.file_url,
+        duration: data.track.duration || 0,
+        instrument: data.track.instrument || 'Unknown',
+        isAIGenerated: data.track.isAIGenerated || false
+      };
+      
+      setTracks(prev => [...prev, formattedTrack]);
       toast({ title: `${data.username} added a track.`, variant: 'default' });
     });
     
@@ -238,7 +282,7 @@ export function StudioProvider({ children }) {
 
     socket.emit('join-session', { projectId: id, sessionId: metadata.sessionId });
     
-  }, [user, handleTrackSync, handleTransportSync, loadProject]);
+  }, [user, handleTrackSync, handleTransportSync]);
 
   const disconnectFromStudio = useCallback(() => {
     if (!projectId || !socket.connected) return;
@@ -276,10 +320,24 @@ export function StudioProvider({ children }) {
 
   const addTrack = useCallback((newTrack) => {
     console.log('➕ Adding track to context:', newTrack);
-    setTracks(prev => [...prev, newTrack]);
+    
+    const formattedTrack = {
+      id: newTrack._id || newTrack.id,
+      _id: newTrack._id || newTrack.id,
+      title: newTrack.title || newTrack.name,
+      name: newTrack.name || newTrack.title,
+      file_url: newTrack.file_url || newTrack.audioFileUrl,
+      audioFileUrl: newTrack.audioFileUrl || newTrack.file_url,
+      duration: newTrack.duration || 0,
+      instrument: newTrack.instrument || 'Unknown',
+      isAIGenerated: newTrack.isAIGenerated || false
+    };
+    
+    setTracks(prev => [...prev, formattedTrack]);
+    
     toast({ 
       title: "Track added successfully", 
-      description: `"${newTrack.title || newTrack.name}" has been added to the project`, 
+      description: `"${formattedTrack.title}" has been added to the project`, 
       variant: 'success' 
     });
   }, []);

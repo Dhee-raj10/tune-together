@@ -1,15 +1,14 @@
+// backend/routes/projects.js - COMPLETE REPLACEMENT
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth'); // YOUR existing auth middleware
-
+const auth = require('../middleware/auth');
 const Project = require('../models/Project');
 const CollaborationProject = require('../models/CollaborationProject');
 
-// CREATE PROJECT - Supports both solo and collaborative
+// ✅ CREATE PROJECT - Supports both solo and collaborative
 router.post('/', auth, async (req, res) => {
   try {
     const { title, description, mode, owner_id, tempo, master_volume } = req.body;
-    // YOUR auth middleware sets req.user = { id: user.id }
     const userId = req.user.id || req.user._id || req.user.userId;
 
     console.log('📝 Creating project:', { title, mode, userId });
@@ -76,18 +75,22 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// GET PROJECT BY ID
+// ✅ GET PROJECT BY ID
 router.get('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id || req.user._id;
 
+    console.log('📂 GET project:', id, 'for user:', userId);
+
     let project = await Project.findById(id);
     
     if (project) {
       if (project.owner_id.toString() !== userId.toString()) {
+        console.log('❌ Access denied - not owner');
         return res.status(403).json({ error: 'Access denied' });
       }
+      console.log('✅ Found SOLO project:', project.title);
       return res.json(project);
     }
 
@@ -99,11 +102,15 @@ router.get('/:id', auth, async (req, res) => {
         c => c.userId && c.userId._id.toString() === userId.toString()
       );
       if (!hasAccess) {
+        console.log('❌ Access denied - not collaborator');
         return res.status(403).json({ error: 'Access denied' });
       }
+      console.log('✅ Found COLLABORATIVE project:', collabProject.name);
+      console.log('   Tracks in project:', collabProject.tracks.length);
       return res.json(collabProject);
     }
 
+    console.log('❌ Project not found');
     return res.status(404).json({ error: 'Project not found' });
   } catch (error) {
     console.error('❌ Get project error:', error);
@@ -111,15 +118,19 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// GET ALL USER'S PROJECTS
+// ✅ GET ALL USER'S PROJECTS
 router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
+
+    console.log('📂 GET all projects for user:', userId);
 
     const soloProjects = await Project.find({ owner_id: userId });
     const collabProjects = await CollaborationProject.find({
       'collaborators.userId': userId
     });
+
+    console.log(`✅ Found ${soloProjects.length} solo + ${collabProjects.length} collaborative projects`);
 
     const allProjects = [
       ...soloProjects.map(p => ({ ...p._doc, mode: p.mode || 'solo' })),
@@ -133,12 +144,15 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// UPDATE PROJECT
+// ✅ UPDATE PROJECT
 router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id || req.user._id;
     const updates = req.body;
+
+    console.log('💾 UPDATE project:', id);
+    console.log('   Updates:', updates);
 
     let project = await Project.findById(id);
     
@@ -148,6 +162,7 @@ router.put('/:id', auth, async (req, res) => {
       }
       Object.assign(project, updates);
       await project.save();
+      console.log('✅ Solo project updated');
       return res.json({ id: project._id, message: 'Project updated' });
     }
 
@@ -163,7 +178,9 @@ router.put('/:id', auth, async (req, res) => {
       if (updates.description) collabProject.description = updates.description;
       if (updates.tempo || updates.bpm) collabProject.bpm = updates.tempo || updates.bpm;
       await collabProject.save();
-      return res.json({ id: collabProject._id, message: 'Project updated' });
+      console.log('✅ Collaborative project updated');
+      console.log('   Tracks preserved:', collabProject.tracks.length);
+      return res.json({ id: collabProject._id, message: 'Project updated', project: collabProject });
     }
 
     return res.status(404).json({ error: 'Project not found' });
@@ -173,7 +190,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// DELETE PROJECT
+// ✅ DELETE PROJECT
 router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;

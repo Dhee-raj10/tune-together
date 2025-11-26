@@ -1,3 +1,4 @@
+// frontend/src/components/TrackUploader.js - FIXED
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -73,17 +74,43 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
       setIsUploading(true);
       setUploadProgress(0);
 
-      const response = await api.post(`/projects/${projectId}/tracks`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          setUploadProgress(percentCompleted);
-        },
-      });
+      console.log('📤 Uploading track to project:', projectId);
+      console.log('   File:', selectedFile.name);
+      console.log('   Duration:', trackDuration);
+
+      // ✅ CRITICAL FIX: Detect project type and use correct endpoint
+      let endpoint;
+      let response;
+      
+      try {
+        // Try collaborative endpoint first
+        console.log('   Trying collaborative endpoint...');
+        response = await api.post(`/collaboration/projects/${projectId}/tracks`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          },
+        });
+        console.log('✅ Uploaded to COLLABORATIVE project');
+      } catch (collabError) {
+        if (collabError.response?.status === 404 || collabError.response?.status === 403) {
+          // Try solo endpoint
+          console.log('   Trying solo endpoint...');
+          response = await api.post(`/projects/${projectId}/tracks`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              setUploadProgress(percentCompleted);
+            },
+          });
+          console.log('✅ Uploaded to SOLO project');
+        } else {
+          throw collabError;
+        }
+      }
+
+      console.log('✅ Upload response:', response.data);
 
       toast({
         title: 'Success',
@@ -91,15 +118,36 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
         variant: 'success',
       });
 
+      // ✅ CRITICAL: Pass the complete track data back
       if (onUploadComplete) {
-        onUploadComplete(response.data);
+        const uploadedTrack = {
+          id: response.data._id || response.data.id,
+          _id: response.data._id || response.data.id,
+          title: response.data.title || response.data.name,
+          name: response.data.name || response.data.title,
+          file_url: response.data.file_url || response.data.audioFileUrl,
+          audioFileUrl: response.data.audioFileUrl || response.data.file_url,
+          duration: response.data.duration || trackDuration,
+          created_at: response.data.created_at || response.data.createdAt
+        };
+        
+        console.log('📦 Passing track to parent:', uploadedTrack);
+        onUploadComplete(uploadedTrack);
       }
 
       setSelectedFile(null);
       setTrackDuration(null);
       setUploadProgress(0);
+      
+      // Clear file input
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = '';
+      
     } catch (error) {
-      console.error('Error uploading track:', error);
+      console.error('❌ Upload error:', error);
+      console.error('   Status:', error.response?.status);
+      console.error('   Data:', error.response?.data);
+      
       toast({
         title: 'Error',
         description: error.response?.data?.msg || 'Failed to upload track',
@@ -111,7 +159,7 @@ export const TrackUploader = ({ projectId, onUploadComplete }) => {
   };
 
   return (
-    <Card className="p-4 mt-3 shadow-sm rounded-4">
+    <Card className="p-4 shadow-sm rounded-4">
       <h5 className="mb-3">Select Audio File</h5>
       <Form.Group controlId="formFile" className="mb-3">
         <Form.Control

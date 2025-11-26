@@ -1,9 +1,10 @@
+// backend/routes/collaborationProjects.js - COMPLETE REPLACEMENT
 const express = require('express');
 const router = express.Router();
 const CollaborationProject = require('../models/CollaborationProject');
 const auth = require('../middleware/auth');
 
-// Get user's projects
+// ✅ Get user's collaborative projects
 router.get('/my-projects', auth, async (req, res) => {
   try {
     const userId = req.user.id || req.user._id;
@@ -20,16 +21,19 @@ router.get('/my-projects', auth, async (req, res) => {
   }
 });
 
-// Get specific project
+// ✅ Get specific collaborative project
 router.get('/:projectId', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
     const userId = req.user.id || req.user._id;
 
+    console.log('📂 GET collaborative project:', projectId);
+
     const project = await CollaborationProject.findById(projectId)
       .populate('collaborators.userId', 'username avatar_url');
 
     if (!project) {
+      console.log('❌ Project not found');
       return res.status(404).json({ error: 'Project not found' });
     }
 
@@ -38,10 +42,11 @@ router.get('/:projectId', auth, async (req, res) => {
     );
 
     if (!hasAccess) {
+      console.log('❌ Access denied');
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    console.log(`✅ Project fetched: ${projectId}`);
+    console.log(`✅ Project fetched with ${project.tracks.length} tracks`);
     res.json({ project });
   } catch (error) {
     console.error('❌ Get project error:', error);
@@ -49,66 +54,33 @@ router.get('/:projectId', auth, async (req, res) => {
   }
 });
 
-// Update project
-/*router.put('/:projectId', auth, async (req, res) => {
-  try {
-    const { projectId } = req.params;
-    const userId = req.user.id || req.user._id;
-    const { name, description, bpm, timeSignature, keySignature } = req.body;
-
-    const project = await CollaborationProject.findById(projectId);
-
-    if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
-    }
-
-    const collaborator = project.collaborators.find(
-      c => c.userId && c.userId.toString() === userId.toString()
-    );
-
-    if (!collaborator || collaborator.permissions === 'view') {
-      return res.status(403).json({ error: 'Insufficient permissions' });
-    }
-
-    if (name) project.name = name;
-    if (description !== undefined) project.description = description;
-    if (bpm && bpm >= 40 && bpm <= 240) project.bpm = bpm;
-    if (timeSignature) project.timeSignature = timeSignature;
-    if (keySignature) project.keySignature = keySignature;
-
-    await project.save();
-    
-    console.log(`✅ Project updated: ${projectId}`);
-    res.json({ project });
-  } catch (error) {
-    console.error('❌ Update project error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-*/
-// ✅ PUT /api/collaboration/projects/:projectId
+// ✅ Update collaborative project
 router.put('/:projectId', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
     const userId = req.user.id || req.user._id;
     const { name, description, bpm, timeSignature, keySignature, metadata } = req.body;
 
+    console.log('💾 UPDATE collaborative project:', projectId);
+    console.log('   Updates:', req.body);
+
     const project = await CollaborationProject.findById(projectId);
 
     if (!project) {
+      console.log('❌ Project not found');
       return res.status(404).json({ error: 'Project not found' });
     }
 
-    // ✅ Check user permission
     const collaborator = project.collaborators.find(
       c => c.userId && c.userId.toString() === userId.toString()
     );
 
     if (!collaborator || collaborator.permissions === 'view') {
+      console.log('❌ Insufficient permissions');
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    // ✅ Update fields
+    // ✅ Update fields WITHOUT touching tracks
     if (name) project.name = name;
     if (description !== undefined) project.description = description;
     if (bpm && bpm >= 40 && bpm <= 240) project.bpm = bpm;
@@ -123,7 +95,9 @@ router.put('/:projectId', auth, async (req, res) => {
     const updatedProject = await CollaborationProject.findById(projectId)
       .populate('collaborators.userId', 'username avatar_url');
 
-    console.log(`✅ Project updated successfully: ${projectId}`);
+    console.log(`✅ Project updated successfully`);
+    console.log(`   Tracks preserved: ${updatedProject.tracks.length}`);
+    
     res.json({ project: updatedProject });
   } catch (error) {
     console.error('❌ Update project error:', error);
@@ -131,7 +105,7 @@ router.put('/:projectId', auth, async (req, res) => {
   }
 });
 
-// Delete project
+// ✅ Delete collaborative project
 router.delete('/:projectId', auth, async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -161,7 +135,7 @@ router.delete('/:projectId', auth, async (req, res) => {
   }
 });
 
-// Leave project (for non-admin collaborators)
+// ✅ Leave collaborative project
 router.post('/:projectId/leave', auth, async (req, res) => {
   try {
     const { projectId } = req.params;

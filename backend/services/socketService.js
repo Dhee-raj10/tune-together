@@ -1,3 +1,4 @@
+// backend/services/socketService.js - FIXED VERSION
 const jwt = require('jsonwebtoken');
 const config = require('../config/default');
 const CollaborationProject = require('../models/CollaborationProject');
@@ -11,7 +12,6 @@ class SocketService {
   initialize(io) {
     this.io = io;
 
-    // ✅ Authentication middleware
     io.use((socket, next) => {
       try {
         const token = socket.handshake.auth.token;
@@ -44,16 +44,8 @@ class SocketService {
     socket.on('track-add', (data) => this.handleTrackAdd(socket, data));
     socket.on('track-update', (data) => this.handleTrackUpdate(socket, data));
     socket.on('track-delete', (data) => this.handleTrackDelete(socket, data));
-    socket.on('lock-track', (data) => this.handleLockTrack(socket, data));
-    socket.on('unlock-track', (data) => this.handleUnlockTrack(socket, data));
-    socket.on('play-state', (data) => this.handlePlayState(socket, data));
-    socket.on('cursor-position', (data) => this.handleCursorPosition(socket, data));
-
-    // ✅ NEW: Broadcast project updates
     socket.on('project-updated', (data) => {
       console.log('📡 Broadcasting project-updated:', data);
-
-      // Broadcast to all users in the same project/session EXCEPT the sender
       socket.to(data.projectId).emit('project-updated', {
         projectId: data.projectId,
         updateType: data.updateType,
@@ -68,10 +60,15 @@ class SocketService {
 
   async handleJoinSession(socket, { projectId, sessionId }) {
     try {
+      console.log('🔗 User joining session:', socket.username);
+      console.log('   Project ID:', projectId);
+      console.log('   Session ID:', sessionId);
+
       const project = await CollaborationProject.findById(projectId)
         .populate('collaborators.userId', 'username avatar_url');
 
       if (!project) {
+        console.log('❌ Project not found');
         socket.emit('error', { message: 'Project not found' });
         return;
       }
@@ -81,6 +78,7 @@ class SocketService {
       );
 
       if (!hasAccess) {
+        console.log('❌ Access denied');
         socket.emit('error', { message: 'Access denied' });
         return;
       }
@@ -90,11 +88,12 @@ class SocketService {
       socket.sessionId = sessionId;
 
       if (!this.sessions.has(sessionId)) {
+        console.log('📦 Creating new session in memory');
         this.sessions.set(sessionId, {
           projectId,
           projectName: project.name,
           users: [],
-          tracks: project.tracks || [],
+          tracks: project.tracks || [], // ✅ Load tracks from MongoDB
           bpm: project.bpm,
           timeSignature: project.timeSignature,
           locks: new Map(),
@@ -102,6 +101,13 @@ class SocketService {
       }
 
       const session = this.sessions.get(sessionId);
+      
+      // ✅ CRITICAL: Reload tracks from MongoDB to ensure latest data
+      const latestProject = await CollaborationProject.findById(projectId);
+      session.tracks = latestProject.tracks || [];
+      
+      console.log(`📊 Session has ${session.tracks.length} tracks from MongoDB`);
+
       const userColor = `hsl(${Math.floor(Math.random() * 360)}, 70%, 60%)`;
 
       session.users.push({
@@ -116,8 +122,14 @@ class SocketService {
         { $set: { 'collaborators.$.lastActive': new Date() } }
       );
 
+      // ✅ Send current session state with tracks
       socket.emit('session-state', {
-        ...session,
+        projectId: session.projectId,
+        projectName: session.projectName,
+        users: session.users,
+        tracks: session.tracks, // ✅ This will be received by frontend
+        bpm: session.bpm,
+        timeSignature: session.timeSignature,
         locks: Array.from(session.locks.entries()),
       });
 
@@ -127,9 +139,9 @@ class SocketService {
         color: userColor,
       });
 
-      console.log(`${socket.username} joined session ${sessionId}`);
+      console.log(`✅ ${socket.username} joined session with ${session.tracks.length} tracks`);
     } catch (error) {
-      console.error('Join session error:', error);
+      console.error('❌ Join session error:', error);
       socket.emit('error', { message: error.message });
     }
   }
@@ -142,28 +154,38 @@ class SocketService {
       const session = this.sessions.get(sessionId);
       if (!session) return;
 
+      console.log('➕ Adding track via Socket.IO:', trackData.name);
+
       const project = await CollaborationProject.findById(projectId);
       const newTrack = {
         name: trackData.name,
         instrument: trackData.instrument,
         createdBy: socket.userId,
+        audioFileUrl: trackData.audioFileUrl,
         notes: trackData.notes || [],
         trackOrder: project.tracks.length,
+        duration: trackData.duration || 0,
+        isAIGenerated: trackData.isAIGenerated || false,
       };
 
       project.tracks.push(newTrack);
       await project.save();
 
       const savedTrack = project.tracks[project.tracks.length - 1];
+      
+      // ✅ Update session memory
       session.tracks.push(savedTrack);
 
+      console.log(`✅ Track saved to MongoDB: ${savedTrack._id}`);
+
+      // ✅ Broadcast to all users in session
       this.io.to(sessionId).emit('track-added', {
         track: savedTrack,
         addedBy: socket.userId,
         username: socket.username,
       });
     } catch (error) {
-      console.error('Track add error:', error);
+      console.error('❌ Track add error:', error);
       socket.emit('error', { message: error.message });
     }
   }
@@ -176,15 +198,9 @@ class SocketService {
       const session = this.sessions.get(sessionId);
       if (!session) return;
 
-      const lock = session.locks.get(trackId);
-      if (lock && lock.userId !== socket.userId) {
-        socket.emit('error', {
-          message: 'Track is locked',
-          lockedBy: lock.username,
-        });
-        return;
-      }
+      console.log('✏️ Updating track:', trackId);
 
+      // ✅ Update in MongoDB
       await CollaborationProject.findOneAndUpdate(
         { _id: projectId, 'tracks._id': trackId },
         {
@@ -195,6 +211,7 @@ class SocketService {
         }
       );
 
+      // ✅ Update session memory
       const trackIndex = session.tracks.findIndex(
         (t) => t._id.toString() === trackId
       );
@@ -205,6 +222,9 @@ class SocketService {
         };
       }
 
+      console.log('✅ Track updated in MongoDB');
+
+      // ✅ Broadcast to other users
       socket.to(sessionId).emit('track-updated', {
         trackId,
         updates,
@@ -212,7 +232,7 @@ class SocketService {
         username: socket.username,
       });
     } catch (error) {
-      console.error('Track update error:', error);
+      console.error('❌ Track update error:', error);
       socket.emit('error', { message: error.message });
     }
   }
@@ -225,88 +245,30 @@ class SocketService {
       const session = this.sessions.get(sessionId);
       if (!session) return;
 
+      console.log('🗑️ Deleting track:', trackId);
+
+      // ✅ Delete from MongoDB
       await CollaborationProject.findByIdAndUpdate(projectId, {
         $pull: { tracks: { _id: trackId } },
       });
 
+      // ✅ Update session memory
       session.tracks = session.tracks.filter(
         (t) => t._id.toString() !== trackId
       );
       session.locks.delete(trackId);
 
+      console.log('✅ Track deleted from MongoDB');
+
+      // ✅ Broadcast to all users
       this.io.to(sessionId).emit('track-deleted', {
         trackId,
         deletedBy: socket.userId,
       });
     } catch (error) {
-      console.error('Track delete error:', error);
+      console.error('❌ Track delete error:', error);
       socket.emit('error', { message: error.message });
     }
-  }
-
-  handleLockTrack(socket, { trackId }) {
-    const { sessionId } = socket;
-    if (!sessionId) return;
-
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    const existingLock = session.locks.get(trackId);
-    if (existingLock && existingLock.userId !== socket.userId) {
-      socket.emit('error', {
-        message: 'Track already locked',
-        lockedBy: existingLock.username,
-      });
-      return;
-    }
-
-    session.locks.set(trackId, {
-      userId: socket.userId,
-      username: socket.username,
-    });
-
-    this.io.to(sessionId).emit('track-locked', {
-      trackId,
-      userId: socket.userId,
-      username: socket.username,
-    });
-  }
-
-  handleUnlockTrack(socket, { trackId }) {
-    const { sessionId } = socket;
-    if (!sessionId) return;
-
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    session.locks.delete(trackId);
-
-    this.io.to(sessionId).emit('track-unlocked', {
-      trackId,
-      userId: socket.userId,
-    });
-  }
-
-  handlePlayState(socket, { isPlaying }) {
-    const { sessionId } = socket;
-    if (!sessionId) return;
-
-    socket.to(sessionId).emit('play-state-changed', {
-      isPlaying,
-      userId: socket.userId,
-      username: socket.username,
-    });
-  }
-
-  handleCursorPosition(socket, { position }) {
-    const { sessionId } = socket;
-    if (!sessionId) return;
-
-    socket.to(sessionId).emit('user-cursor', {
-      userId: socket.userId,
-      username: socket.username,
-      position,
-    });
   }
 
   handleLeaveSession(socket) {
@@ -316,23 +278,17 @@ class SocketService {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    session.users = session.users.filter((u) => u.userId !== socket.userId);
+    console.log(`👋 ${socket.username} leaving session`);
 
-    for (const [trackId, lock] of session.locks.entries()) {
-      if (lock.userId === socket.userId) {
-        session.locks.delete(trackId);
-        this.io.to(sessionId).emit('track-unlocked', { trackId });
-      }
-    }
+    session.users = session.users.filter((u) => u.userId !== socket.userId);
 
     socket.to(sessionId).emit('user-left', {
       userId: socket.userId,
       username: socket.username,
     });
 
-    if (session.users.length === 0) {
-      this.sessions.delete(sessionId);
-    }
+    // ✅ Don't delete session immediately - keep tracks in memory
+    // Session will be recreated with fresh data on next join
 
     socket.leave(sessionId);
   }
