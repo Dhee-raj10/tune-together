@@ -1,4 +1,4 @@
-// frontend/src/pages/MusicStudio.js - COMPLETE FIX
+// frontend/src/pages/MusicStudio.js - CYAN THEME
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStudio } from '../contexts/StudioContext';
@@ -25,7 +25,7 @@ export default function MusicStudio() {
     tracks,
     addTrack,
     socket,
-    loadTracks, // ✅ CRITICAL: Use this to reload tracks
+    loadTracks,
   } = useStudio();
 
   const [isProjectLoading, setIsProjectLoading] = useState(true);
@@ -34,7 +34,6 @@ export default function MusicStudio() {
   const [isSaving, setIsSaving] = useState(false);
   const [projectType, setProjectType] = useState(null);
 
-  // ✅ CRITICAL FIX: Reload tracks whenever component mounts or projectId changes
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -52,9 +51,6 @@ export default function MusicStudio() {
         setIsProjectLoading(true);
         setProjectError(null);
 
-        console.log('📥 Initializing studio for project:', currentProjectId);
-        
-        // ✅ STEP 1: Load project data
         const projectData = await loadProject(currentProjectId);
         
         if (!projectData) {
@@ -63,21 +59,12 @@ export default function MusicStudio() {
           return;
         }
 
-        console.log('✅ Project loaded:', projectData);
-
-        // ✅ STEP 2: Determine project type
         const isCollaborative = projectData.mode === 'collaborative' || projectData.sessionId;
         setProjectType(isCollaborative ? 'collaborative' : 'solo');
-        
-        console.log('📊 Project type:', isCollaborative ? 'COLLABORATIVE' : 'SOLO');
 
-        // ✅ STEP 3: For collaborative, connect to WebSocket
         if (isCollaborative) {
-          console.log('🔌 Connecting to collaborative session...');
           connectToStudio(currentProjectId, projectData);
         } else {
-          // ✅ CRITICAL FIX: For solo projects, explicitly reload tracks
-          console.log('📝 Solo project - loading tracks from database...');
           await loadTracks(currentProjectId, false);
         }
 
@@ -92,22 +79,15 @@ export default function MusicStudio() {
     initializeStudio();
 
     return () => {
-      console.log('🧹 Cleaning up studio...');
       disconnectFromStudio();
     };
   }, [currentProjectId, user, loadProject, connectToStudio, disconnectFromStudio, loadTracks, navigate]);
 
   const handleRequestSaveAndExit = () => {
-    console.log('🚪 EXIT BUTTON CLICKED');
     setShowSaveDialog(true);
   };
 
   const handleSaveAndExit = async () => {
-    console.log('💾 SAVE & EXIT STARTED');
-    console.log('   Project Type:', projectType);
-    console.log('   Project ID:', currentProjectId);
-    console.log('   Tracks to save:', tracks.length);
-    
     setIsSaving(true);
 
     try {
@@ -126,16 +106,12 @@ export default function MusicStudio() {
         }
       };
 
-      console.log('📦 Save payload:', savePayload);
-
       let response;
 
       if (projectType === 'collaborative') {
-        console.log('🔄 Saving COLLABORATIVE project');
         response = await api.put(`/collaboration/projects/${currentProjectId}`, savePayload);
         
         if (socket && socket.connected) {
-          console.log('📡 Emitting project-updated event...');
           socket.emit('project-updated', {
             projectId: currentProjectId,
             updateType: 'save-and-exit',
@@ -144,11 +120,8 @@ export default function MusicStudio() {
           });
         }
       } else {
-        console.log('💾 Saving SOLO project');
         response = await api.put(`/projects/${currentProjectId}`, savePayload);
       }
-
-      console.log('✅ Save response:', response.data);
 
       toast({ 
         title: 'Project Saved!', 
@@ -166,26 +139,20 @@ export default function MusicStudio() {
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
-      
-      console.log('🏠 Redirecting to /my-projects');
       navigate('/my-projects');
 
     } catch (error) {
       console.error('❌ Save error:', error);
-      
       toast({ 
         title: 'Save Failed', 
         description: error.response?.data?.error || error.message,
         variant: 'error' 
       });
-      
       setIsSaving(false);
     }
   };
 
   const handleExitWithoutSaving = () => {
-    console.log('🚪 EXIT WITHOUT SAVING');
-    
     if (projectType === 'collaborative' && socket && socket.connected) {
       socket.emit('leave-session', { 
         projectId: currentProjectId, 
@@ -207,13 +174,19 @@ export default function MusicStudio() {
 
   if (isProjectLoading) { 
     return (
-      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+      <div className="d-flex justify-content-center align-items-center" style={{ 
+        minHeight: '100vh',
+        background: 'rgba(0, 198, 209, 0.08)'
+      }}>
         <div className="text-center">
-          <div className="spinner-border text-primary mb-3" style={{ width: '3rem', height: '3rem' }}>
+          <div className="spinner-border mb-3" style={{ 
+            width: '3rem', 
+            height: '3rem',
+            color: '#00C6D1'
+          }}>
             <span className="visually-hidden">Loading...</span>
           </div>
-          <h3>Loading Studio...</h3>
-          <p className="text-muted">Project ID: {currentProjectId}</p>
+          <h3 style={{ color: '#00C6D1' }}>Loading Studio...</h3>
         </div>
       </div>
     );
@@ -224,7 +197,11 @@ export default function MusicStudio() {
       <>
         <Navbar />
         <div className="container py-5">
-          <div className="alert alert-danger">
+          <div className="alert" style={{
+            background: 'rgba(220, 38, 38, 0.1)',
+            border: '2px solid #dc2626',
+            color: '#dc2626'
+          }}>
             <h4>Studio Error</h4>
             <p>{projectError}</p>
             <button onClick={() => navigate('/explore')} className="btn btn-primary mt-3">
@@ -241,40 +218,69 @@ export default function MusicStudio() {
   const uploadedCount = tracks.filter(t => !t.isAIGenerated && !t.title?.includes('AI')).length;
   const aiCount = tracks.filter(t => t.isAIGenerated || t.title?.includes('AI')).length;
 
-  // ✅ DEBUG: Show current track count
-  console.log('🎵 Current tracks in UI:', tracks.length);
-
   return (
-    <>
+    <div style={{ 
+      minHeight: '100vh',
+      background: 'rgba(0, 198, 209, 0.08)'
+    }}>
       <Navbar />
       
-      <div className="bg-light border-bottom">
+      {/* Studio Header */}
+      <div style={{ 
+        background: 'rgba(0, 198, 209, 0.15)',
+        borderBottom: '2px solid #00C6D1',
+        boxShadow: '0 4px 20px rgba(0, 198, 209, 0.2)'
+      }}>
         <div className="container py-3">
           <div className="d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-3">
-              <button onClick={() => navigate('/my-projects')} className="btn btn-outline-secondary">
+              <button 
+                onClick={() => navigate('/my-projects')} 
+                className="btn"
+                style={{
+                  background: 'rgba(0, 198, 209, 0.2)',
+                  border: '1px solid #00C6D1',
+                  color: '#00C6D1'
+                }}
+              >
                 <i className="bi bi-arrow-left"></i>
               </button>
               <div>
-                <h1 className="h4 mb-0">{projectMetadata.title || 'Untitled Project'}</h1>
-                <small className="text-muted">
+                <h1 className="h4 mb-0" style={{ color: '#00C6D1' }}>
+                  {projectMetadata.title || 'Untitled Project'}
+                </h1>
+                <small style={{ color: '#0099A8' }}>
                   <i className={`bi ${isCollaborative ? 'bi-people-fill' : 'bi-person-fill'} me-1`}></i>
                   {isCollaborative ? 'Collaborative' : 'Solo'} mode
                   {isCollaborative && socket?.connected && (
-                    <span className="badge bg-success ms-2">
+                    <span className="badge ms-2" style={{
+                      background: '#10b981',
+                      color: '#ffffff'
+                    }}>
                       <i className="bi bi-circle-fill" style={{ fontSize: '0.5rem' }}></i> Live
                     </span>
                   )}
-                  {/* ✅ DEBUG INFO */}
-                  <span className="badge bg-info ms-2">{tracks.length} tracks loaded</span>
+                  <span className="badge ms-2" style={{
+                    background: 'rgba(0, 198, 209, 0.3)',
+                    color: '#00C6D1'
+                  }}>
+                    {tracks.length} tracks
+                  </span>
                 </small>
               </div>
             </div>
             
             <button
               onClick={handleRequestSaveAndExit}
-              className="btn btn-primary"
+              className="btn btn-lg"
               disabled={isSaving}
+              style={{
+                background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+                color: '#ffffff',
+                fontWeight: 'bold',
+                border: 'none',
+                boxShadow: '0 4px 15px rgba(0, 198, 209, 0.3)'
+              }}
             >
               <i className="bi bi-box-arrow-right me-2"></i>
               Save & Exit
@@ -283,10 +289,15 @@ export default function MusicStudio() {
         </div>
       </div>
 
+      {/* Studio Content */}
       <div className="container py-4">
         <div className="row g-4">
           <div className="col-lg-8">
-            <div className="card shadow-sm border-0 p-4 mb-4">
+            <div className="card shadow-sm border-0 p-4 mb-4" style={{
+              background: 'rgba(255, 255, 255, 0.95)',
+              border: '2px solid rgba(0, 198, 209, 0.3)',
+              borderRadius: '15px'
+            }}>
               <TrackArrangementPanel />
             </div>
           </div>
@@ -310,19 +321,34 @@ export default function MusicStudio() {
 
       {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
           <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header bg-primary text-white">
-                <h5 className="modal-title">
+            <div className="modal-content" style={{
+              background: 'rgba(0, 198, 209, 0.15)',
+              border: '2px solid #00C6D1',
+              color: '#00C6D1'
+            }}>
+              <div className="modal-header" style={{ 
+                background: 'rgba(0, 198, 209, 0.3)',
+                borderBottom: '2px solid #00C6D1'
+              }}>
+                <h5 className="modal-title" style={{ color: '#00C6D1' }}>
                   <i className="bi bi-question-circle me-2"></i>
                   Save {tracks.length} Track{tracks.length !== 1 ? 's' : ''}?
                 </h5>
-                <button className="btn-close btn-close-white" onClick={() => setShowSaveDialog(false)}></button>
+                <button 
+                  className="btn-close" 
+                  onClick={() => setShowSaveDialog(false)}
+                  style={{ filter: 'invert(1)' }}
+                ></button>
               </div>
               
-              <div className="modal-body">
-                <div className="alert alert-info">
+              <div className="modal-body" style={{ color: '#ffffff' }}>
+                <div className="alert" style={{
+                  background: 'rgba(0, 198, 209, 0.2)',
+                  border: '1px solid #00C6D1',
+                  color: '#00C6D1'
+                }}>
                   <h6><i className="bi bi-database me-2"></i>What will be saved:</h6>
                   <ul className="mb-0">
                     <li><strong>{uploadedCount}</strong> uploaded file{uploadedCount !== 1 ? 's' : ''}</li>
@@ -331,20 +357,47 @@ export default function MusicStudio() {
                   </ul>
                 </div>
                 
-                <div className="alert alert-warning">
+                <div className="alert" style={{
+                  background: 'rgba(251, 191, 36, 0.2)',
+                  border: '1px solid #fbbf24',
+                  color: '#fbbf24'
+                }}>
                   <i className="bi bi-exclamation-triangle me-2"></i>
                   <strong>Warning:</strong> Exiting without saving will discard all changes.
                 </div>
               </div>
 
               <div className="modal-footer flex-column gap-2">
-                <button onClick={handleSaveAndExit} disabled={isSaving} className="btn btn-success w-100">
+                <button 
+                  onClick={handleSaveAndExit} 
+                  disabled={isSaving} 
+                  className="btn w-100"
+                  style={{
+                    background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+                    color: '#ffffff',
+                    fontWeight: 'bold',
+                    border: 'none'
+                  }}
+                >
                   {isSaving ? 'Saving...' : 'Save & Exit'}
                 </button>
-                <button onClick={handleExitWithoutSaving} disabled={isSaving} className="btn btn-outline-danger w-100">
+                <button 
+                  onClick={handleExitWithoutSaving} 
+                  disabled={isSaving} 
+                  className="btn btn-outline-danger w-100"
+                >
                   Exit Without Saving
                 </button>
-                <button onClick={() => setShowSaveDialog(false)} disabled={isSaving} className="btn btn-outline-secondary w-100">
+                <button 
+                  onClick={() => setShowSaveDialog(false)} 
+                  disabled={isSaving} 
+                  className="btn w-100"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#00C6D1',
+                    border: '1px solid #00C6D1'
+                  }}
+                >
                   Cancel
                 </button>
               </div>
@@ -352,6 +405,6 @@ export default function MusicStudio() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

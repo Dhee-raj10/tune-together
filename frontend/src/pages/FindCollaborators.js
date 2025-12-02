@@ -1,7 +1,4 @@
-// ==========================================
-// FILE: src/pages/FindCollaborators.js
-// ==========================================
-
+// frontend/src/pages/FindCollaborators.js - CYAN THEME
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,7 +7,6 @@ import { toast } from '../hooks/use-toast';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 
-// ✅ Clean instrument names (emojis only for UI, names stored clean)
 const INSTRUMENTS_LIST = [
   { name: 'Piano', icon: '🎹' },
   { name: 'Guitar', icon: '🎸' },
@@ -24,12 +20,6 @@ const INSTRUMENTS_LIST = [
   { name: 'Synthesizer', icon: '🎹' },
   { name: 'Cello', icon: '🎻' },
   { name: 'Clarinet', icon: '🎶' },
-  { name: 'Trombone', icon: '🎺' },
-  { name: 'Harp', icon: '🎵' },
-  { name: 'Ukulele', icon: '🎸' },
-  { name: 'Banjo', icon: '🎸' },
-  { name: 'Harmonica', icon: '🎵' },
-  { name: 'Accordion', icon: '🎹' }
 ];
 
 function FindCollaborators() {
@@ -68,8 +58,6 @@ function FindCollaborators() {
       const params = { instrument: selectedInstrument };
       if (selectedSkillLevel) params.skillLevel = selectedSkillLevel;
 
-      console.log('🔍 Searching musicians:', params);
-
       const response = await api.get('/musicians/search', { params });
       const results = response.data.musicians || [];
 
@@ -80,11 +68,6 @@ function FindCollaborators() {
           title: 'No musicians found',
           description: `No musicians playing ${selectedInstrument} found.`,
           variant: 'default'
-        });
-      } else {
-        toast({
-          title: `Found ${results.length} musician(s)`,
-          variant: 'success'
         });
       }
     } catch (err) {
@@ -116,8 +99,6 @@ function FindCollaborators() {
         message: formData.message.trim()
       };
 
-      console.log('📤 Collaboration request:', requestData);
-
       await api.post('/collaboration/requests', requestData);
 
       toast({
@@ -141,7 +122,10 @@ function FindCollaborators() {
   };
 
   return (
-    <div className="d-flex flex-column min-vh-100">
+    <div className="d-flex flex-column min-vh-100" style={{
+      background: 'rgba(0, 198, 209, 0.08)',
+      minHeight: '100vh'
+    }}>
       <Navbar />
 
       <main className="flex-grow-1">
@@ -150,36 +134,63 @@ function FindCollaborators() {
           {/* Header */}
           <div className="d-flex justify-content-between align-items-center mb-4">
             <div>
-              <h1 className="mb-2"><i className="bi bi-people me-2" />Find Collaborators</h1>
-              <p className="lead text-muted mb-0">Search musicians & collaborate</p>
+              <h1 className="mb-2" style={{ color: '#00C6D1' }}>
+                <i className="bi bi-people me-2" />Find Collaborators
+              </h1>
+              <p className="lead mb-0" style={{ color: '#0099A8' }}>
+                Search musicians & collaborate
+              </p>
             </div>
-            <button className="btn btn-outline-primary" onClick={() => navigate('/profile')}>
+            <button 
+              className="btn" 
+              onClick={() => navigate('/profile')}
+              style={{
+                background: 'rgba(0, 198, 209, 0.2)',
+                border: '2px solid #00C6D1',
+                color: '#00C6D1',
+                fontWeight: 'bold'
+              }}
+            >
               <i className="bi bi-person-plus me-2" />My Profile
             </button>
           </div>
 
           {/* Info */}
-          <div className="alert alert-info mb-4">
+          <div className="alert mb-4" style={{
+            background: 'rgba(0, 198, 209, 0.15)',
+            border: '2px solid #00C6D1',
+            color: '#00C6D1'
+          }}>
             <i className="bi bi-info-circle me-2" />
             Add instruments in your profile so others can find you!
           </div>
 
           {/* Filters */}
-          <div className="card mb-4 shadow-sm">
+          <div className="card mb-4" style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            border: '2px solid rgba(0, 198, 209, 0.3)',
+            borderRadius: '15px',
+            boxShadow: '0 4px 20px rgba(0, 198, 209, 0.2)'
+          }}>
             <div className="card-body">
-              <h5 className="card-title mb-3">
+              <h5 className="card-title mb-3" style={{ color: '#00C6D1' }}>
                 <i className="bi bi-funnel me-2" />Search Filters
               </h5>
 
               <div className="row g-3">
                 
-                {/* Instrument */}
                 <div className="col-md-5">
-                  <label className="form-label fw-semibold">Instrument *</label>
+                  <label className="form-label fw-semibold" style={{ color: '#00C6D1' }}>
+                    Instrument *
+                  </label>
                   <select
                     className="form-select"
                     value={selectedInstrument}
                     onChange={(e) => setSelectedInstrument(e.target.value)}
+                    style={{
+                      border: '2px solid rgba(0, 198, 209, 0.3)',
+                      color: '#0099A8'
+                    }}
                   >
                     <option value="">Select an instrument...</option>
                     {INSTRUMENTS_LIST.map(inst => (
@@ -190,13 +201,18 @@ function FindCollaborators() {
                   </select>
                 </div>
 
-                {/* Skill level */}
                 <div className="col-md-4">
-                  <label className="form-label fw-semibold">Skill Level</label>
+                  <label className="form-label fw-semibold" style={{ color: '#00C6D1' }}>
+                    Skill Level
+                  </label>
                   <select
                     className="form-select"
                     value={selectedSkillLevel}
                     onChange={(e) => setSelectedSkillLevel(e.target.value)}
+                    style={{
+                      border: '2px solid rgba(0, 198, 209, 0.3)',
+                      color: '#0099A8'
+                    }}
                   >
                     <option value="">Any level</option>
                     <option value="Beginner">Beginner</option>
@@ -206,12 +222,17 @@ function FindCollaborators() {
                   </select>
                 </div>
 
-                {/* Search Button */}
                 <div className="col-md-3 d-flex align-items-end">
                   <button
-                    className="btn btn-primary w-100"
+                    className="btn w-100"
                     onClick={searchMusicians}
                     disabled={!selectedInstrument || loading}
+                    style={{
+                      background: loading ? 'rgba(0, 198, 209, 0.5)' : 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 'bold'
+                    }}
                   >
                     {loading ? (
                       <>
@@ -234,7 +255,7 @@ function FindCollaborators() {
           {/* Results */}
           {musicians.length > 0 && (
             <>
-              <h5 className="mb-3">
+              <h5 className="mb-3" style={{ color: '#00C6D1' }}>
                 <i className="bi bi-person-check me-2" />
                 Found {musicians.length} musician{musicians.length > 1 && 's'}
               </h5>
@@ -242,51 +263,72 @@ function FindCollaborators() {
               <div className="row g-4">
                 {musicians.map(musician => (
                   <div key={musician.id} className="col-md-6 col-lg-4">
-                    <div className="card h-100 shadow-sm border-0 hover-shadow">
+                    <div className="card h-100" style={{
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      border: '2px solid rgba(0, 198, 209, 0.3)',
+                      borderRadius: '15px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-10px)';
+                      e.currentTarget.style.boxShadow = '0 10px 30px rgba(0, 198, 209, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}>
                       <div className="card-body">
 
-                        {/* Profile */}
                         <div className="d-flex align-items-center mb-3">
                           <img
                             src={musician.profilePicture || 'https://via.placeholder.com/60'}
                             alt={musician.username}
                             className="rounded-circle me-3"
-                            style={{ width: 60, height: 60, objectFit: 'cover', border: '3px solid #e9ecef' }}
+                            style={{ 
+                              width: 60, 
+                              height: 60, 
+                              objectFit: 'cover', 
+                              border: '3px solid #00C6D1' 
+                            }}
                           />
                           <div>
-                            <h5 className="mb-0">{musician.username}</h5>
-                            <small className="text-muted">
+                            <h5 className="mb-0" style={{ color: '#00C6D1' }}>
+                              {musician.username}
+                            </h5>
+                            <small style={{ color: '#0099A8' }}>
                               <i className="bi bi-music-note me-1" />
                               {musician.instrument}
                             </small>
                           </div>
                         </div>
 
-                        {/* Bio */}
                         {musician.bio && (
                           <p className="text-muted small">
                             {musician.bio.slice(0, 100)}{musician.bio.length > 100 && '...'}
                           </p>
                         )}
 
-                        {/* Stats */}
                         <div className="mb-3">
-                          <span className="badge bg-primary me-2">{musician.skillLevel}</span>
-                          <small className="text-muted">
+                          <span className="badge me-2" style={{
+                            background: 'rgba(0, 198, 209, 0.2)',
+                            color: '#00C6D1',
+                            border: '1px solid #00C6D1'
+                          }}>
+                            {musician.skillLevel}
+                          </span>
+                          <small style={{ color: '#0099A8' }}>
                             <i className="bi bi-clock-history me-1" />
                             {musician.yearsExperience} {musician.yearsExperience === 1 ? 'year' : 'years'}
                           </small>
                         </div>
 
-                        {/* Projects */}
                         <div className="text-muted small mb-3">
                           <i className="bi bi-folder me-1" />
                           {musician.projectCount} {musician.projectCount === 1 ? 'project' : 'projects'}
                         </div>
 
-                        {/* Send Request */}
                         <button
-                          className="btn btn-success w-100"
+                          className="btn w-100"
                           onClick={() => {
                             setSelectedMusician(musician);
                             setFormData(prev => ({
@@ -294,6 +336,12 @@ function FindCollaborators() {
                               lookingForInstrument: musician.instrument
                             }));
                             setShowModal(true);
+                          }}
+                          style={{
+                            background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 'bold'
                           }}
                         >
                           <i className="bi bi-send me-2" />
@@ -308,33 +356,6 @@ function FindCollaborators() {
             </>
           )}
 
-          {/* Empty states */}
-          {!loading && musicians.length === 0 && selectedInstrument && (
-            <div className="text-center py-5 bg-light rounded-3">
-              <i className="bi bi-music-note-beamed" style={{ fontSize: '4rem', opacity: 0.3 }} />
-              <h4 className="mt-3">No musicians found</h4>
-              <p className="text-muted">
-                No musicians playing <strong>{selectedInstrument}</strong> were found.
-              </p>
-              <button className="btn btn-outline-primary me-2" onClick={() => setSelectedInstrument('')}>
-                <i className="bi bi-arrow-counterclockwise me-2" />
-                Try Another Instrument
-              </button>
-              <button className="btn btn-primary" onClick={() => navigate('/profile')}>
-                <i className="bi bi-person-plus me-2" />
-                Add Instruments
-              </button>
-            </div>
-          )}
-
-          {!selectedInstrument && musicians.length === 0 && (
-            <div className="text-center py-5 bg-light rounded-3">
-              <i className="bi bi-search" style={{ fontSize: '4rem', opacity: 0.3 }} />
-              <h4 className="mt-3">Start Your Search</h4>
-              <p className="text-muted">Select an instrument above and click Search</p>
-            </div>
-          )}
-
         </div>
       </main>
 
@@ -342,23 +363,37 @@ function FindCollaborators() {
 
       {/* Request Modal */}
       {showModal && selectedMusician && (
-        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
           <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
+            <div className="modal-content" style={{
+              background: 'rgba(0, 198, 209, 0.15)',
+              border: '2px solid #00C6D1'
+            }}>
 
-              <div className="modal-header">
-                <h5 className="modal-title"><i className="bi bi-send me-2" />Send Collaboration Request</h5>
+              <div className="modal-header" style={{
+                background: 'rgba(0, 198, 209, 0.3)',
+                borderBottom: '2px solid #00C6D1'
+              }}>
+                <h5 className="modal-title" style={{ color: '#00C6D1' }}>
+                  <i className="bi bi-send me-2" />Send Collaboration Request
+                </h5>
                 <button className="btn-close" onClick={() => setShowModal(false)} />
               </div>
 
               <form onSubmit={handleSendRequest}>
                 <div className="modal-body">
-                  <div className="alert alert-info mb-3">
+                  <div className="alert mb-3" style={{
+                    background: 'rgba(0, 198, 209, 0.2)',
+                    border: '1px solid #00C6D1',
+                    color: '#00C6D1'
+                  }}>
                     Sending request to <strong>{selectedMusician.username}</strong>
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Project Name *</label>
+                    <label className="form-label fw-semibold" style={{ color: '#00C6D1' }}>
+                      Project Name *
+                    </label>
                     <input
                       type="text"
                       className="form-control"
@@ -366,42 +401,62 @@ function FindCollaborators() {
                       value={formData.projectName}
                       onChange={(e) => setFormData({ ...formData, projectName: e.target.value })}
                       placeholder="e.g., Summer Vibes EP"
+                      style={{ border: '2px solid rgba(0, 198, 209, 0.3)' }}
                     />
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Project Description</label>
+                    <label className="form-label fw-semibold" style={{ color: '#00C6D1' }}>
+                      Project Description
+                    </label>
                     <textarea
                       className="form-control"
                       rows="3"
                       value={formData.projectDescription}
                       onChange={(e) => setFormData({ ...formData, projectDescription: e.target.value })}
                       placeholder="Describe your project..."
+                      style={{ border: '2px solid rgba(0, 198, 209, 0.3)' }}
                     />
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Personal Message</label>
+                    <label className="form-label fw-semibold" style={{ color: '#00C6D1' }}>
+                      Personal Message
+                    </label>
                     <textarea
                       className="form-control"
                       rows="3"
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                       placeholder="Why collaborate with them?"
+                      style={{ border: '2px solid rgba(0, 198, 209, 0.3)' }}
                     />
-                  </div>
-
-                  <div className="alert alert-warning small">
-                    <i className="bi bi-exclamation-triangle me-2" />
-                    Once accepted, a shared project will be created.
                   </div>
                 </div>
 
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                  <button 
+                    type="button"
+                    className="btn" 
+                    onClick={() => setShowModal(false)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: '#00C6D1',
+                      border: '1px solid #00C6D1'
+                    }}
+                  >
                     Cancel
                   </button>
-                  <button type="submit" className="btn btn-success">
+                  <button 
+                    type="submit" 
+                    className="btn"
+                    style={{
+                      background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 'bold'
+                    }}
+                  >
                     <i className="bi bi-send me-2" />Send Request
                   </button>
                 </div>
@@ -411,16 +466,6 @@ function FindCollaborators() {
           </div>
         </div>
       )}
-
-      <style>{`
-        .hover-shadow {
-          transition: 0.3s ease;
-        }
-        .hover-shadow:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15) !important;
-        }
-      `}</style>
     </div>
   );
 }
