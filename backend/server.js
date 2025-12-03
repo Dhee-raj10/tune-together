@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 // CORS Configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization']
@@ -20,7 +20,7 @@ app.use(cors({
 // Socket.IO Configuration
 const io = socketIO(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com',
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -86,7 +86,7 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 WebSocket server ready`);
-  console.log(`🌍 CORS enabled for: ${process.env.CLIENT_URL || 'http://localhost:3000'}`);
+  console.log(`🌍 CORS enabled for: ${process.env.CLIENT_URL || 'https://tune-together-10.onrender.com'}`);
   console.log(`📁 Serving uploads from: ${path.join(__dirname, 'uploads')}`);
 });
 
