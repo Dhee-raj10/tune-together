@@ -87,7 +87,7 @@ export const TrackArrangementPanel = () => {
             {tracks.map((track, index) => {
               const trackId = track.id || track._id;
               const isPlaying = playingTrackId === trackId;
-              const audioUrl = `http://localhost:5000${track.file_url}`;
+              const audioUrl = `https://tune-together.onrender.com${track.file_url}`;
 
               return (
                 <div key={trackId || index} className="card border p-3">

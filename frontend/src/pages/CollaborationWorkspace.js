@@ -9,7 +9,7 @@ import api from '../services/api';
 import { toast } from '../hooks/use-toast';
 import { Navbar } from '../components/Navbar';
 
-const WS_URL = process.env.REACT_APP_WS_URL || 'http://localhost:5000';
+const WS_URL = process.env.REACT_APP_WS_URL || 'https://tune-together.onrender.com';
 
 // ✅ INLINE DIALOG COMPONENT - NO IMPORTS NEEDED
 const SaveExitDialog = ({ isOpen, onClose, projectId, projectData, tracks, socket }) => {
@@ -544,7 +544,7 @@ function CollaborationWorkspace() {
                         </button>
                       </div>
                       {track.audioFileUrl && (
-                        <audio controls className="w-100" src={`http://localhost:5000${track.audioFileUrl}`} />
+                        <audio controls className="w-100" src={`${process.env.REACT_APP_WS_URL || 'http://localhost:5000'}${track.audioFileUrl}`} />
                       )}
                     </div>
                   </div>

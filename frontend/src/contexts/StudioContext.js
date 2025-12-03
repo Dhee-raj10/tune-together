@@ -8,7 +8,7 @@ import api from '../services/api';
 const StudioContext = createContext();
 export function useStudio() { return useContext(StudioContext); }
 
-const socket = io('http://localhost:5000', { autoConnect: false, withCredentials: true });
+const socket = io('https://tune-together.onrender.com', { autoConnect: false, withCredentials: true });
 
 export function StudioProvider({ children }) {
   const { user } = useAuth();
