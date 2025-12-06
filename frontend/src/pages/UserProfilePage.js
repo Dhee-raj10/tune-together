@@ -1,100 +1,111 @@
-// src/pages/UserProfilePage.js
+// src/pages/UserProfilePage.js - COMPLETE REPLACEMENT
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Alert } from 'react-bootstrap';
-import { Link } from 'react-router-dom'; // FIX: Correctly imported from react-router-dom
-
+import { Container, Row, Col, Card, Alert, Button } from 'react-bootstrap';
+import { Link, useNavigate } from 'react-router-dom';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { UserProfile } from '../components/UserProfile';
 
 const UserProfilePage = () => {
-  const { user, logout, updateUserRoles } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [logoutError, setLogoutError] = useState(null);
   
-  // This function fetches the logged-in user's projects from the backend
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!user) {
+      console.log('❌ No user found, redirecting to login');
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
   const loadUserProjects = useCallback(async () => {
     if (!user) {
       setIsLoading(false);
       return;
     }
+    
     try {
-      // Use the secured route to get user's projects (owned or collaborated)
-      const res = await api.get(`/projects/my`); 
+      console.log('📥 Loading projects for user:', user.id || user._id);
+      
+      // Get all projects
+      const res = await api.get('/projects');
+      console.log('✅ Projects loaded:', res.data.length);
+      
       setProjects(res.data || []);
     } catch (error) {
-      console.error('Error loading projects:', error);
+      console.error('❌ Error loading projects:', error);
+      
+      if (error.response?.status === 401) {
+        console.log('Token expired, redirecting to login');
+        navigate('/login');
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, navigate]);
 
   useEffect(() => {
-    loadUserProjects();
-  }, [loadUserProjects]);
+    if (user) {
+      loadUserProjects();
+    }
+  }, [user, loadUserProjects]);
   
   const handleLogout = async () => {
     setLogoutError(null);
     try {
       await logout();
+      navigate('/login');
     } catch (error) {
       setLogoutError('Error logging out. Please try again.');
     }
   };
 
   if (!user) {
-    return (
-      <Container className="py-5">
-        <Alert variant="warning">Please log in to view your profile</Alert>
-      </Container>
-    );
+    return null; // Will redirect in useEffect
   }
 
   return (
-    <Container className="py-5">
-      <Row>
-        <Col>
-          <UserProfile userId={user.id} />
-          
-          <Card className="mt-4">
-            <Card.Header>
-              <h5>My Projects ({projects.length})</h5>
-            </Card.Header>
-            <Card.Body>
-              {isLoading ? (
-                <div className="text-center">
-                  <div className="spinner-border" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                </div>
-              ) : projects.length === 0 ? (
-                <p className="text-muted">No projects created yet. <Link to="/explore">Start one now!</Link></p>
-              ) : (
-                <div className="row">
-                  {projects.map(project => (
-                    <div key={project._id || project.id} className="col-md-6 mb-3">
-                      <Card>
-                        <Card.Body>
-                          <Card.Title>{project.title}</Card.Title>
-                          <Card.Text>{project.description}</Card.Text>
-                          <small className="text-muted">
-                            Mode: {project.mode} | Created: {new Date(project.created_at).toLocaleDateString()}
-                          </small>
-                          <div className="mt-2">
-                             <Link to={`/studio/${project._id}`} className="btn btn-sm btn-outline-primary">Open Studio</Link>
-                          </div>
-                        </Card.Body>
-                      </Card>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+    <div className="d-flex flex-column min-vh-100">
+      <Navbar />
+      
+      <Container className="py-5 flex-grow-1">
+        <Row>
+          <Col>
+            {logoutError && (
+              <Alert variant="danger" dismissible onClose={() => setLogoutError(null)}>
+                {logoutError}
+              </Alert>
+            )}
+            
+            <UserProfile userId={user.id || user._id} />
+            
+            {/* Removed Projects Section - Profile is for editing only */}
+            
+            <Card className="mt-4">
+              <Card.Body className="text-center">
+                <h5>Need to manage your projects?</h5>
+                <p className="text-muted">View and manage all your projects in the dedicated projects page</p>
+                <Link to="/my-projects" className="btn btn-primary me-2">
+                  <i className="bi bi-folder me-2"></i>
+                  Go to My Projects
+                </Link>
+                <Link to="/explore" className="btn btn-outline-primary">
+                  <i className="bi bi-plus-circle me-2"></i>
+                  Create New Project
+                </Link>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+      
+      <Footer />
+    </div>
   );
 };
 

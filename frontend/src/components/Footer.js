@@ -1,3 +1,4 @@
+// src/components/Footer.js - COMPLETE REPLACEMENT
 import { Link } from "react-router-dom";
 import { MusicNote, Twitter, Instagram, Youtube } from "react-bootstrap-icons";
 
@@ -15,14 +16,16 @@ export function Footer() {
               Create, collaborate, and learn music together.
             </p>
           </div>
+          
           <div className="col-6 col-md-3">
             <h5 className="h6 fw-semibold mb-2">Platform</h5>
             <ul className="list-unstyled mb-0">
               <li><Link to="/create/solo" className="text-muted text-decoration-none">Solo Mode</Link></li>
-              <li><Link to="/create/collaborative" className="text-muted text-decoration-none">Collaboration Mode</Link></li>
+              <li><Link to="/find-collaborators" className="text-muted text-decoration-none">Collaboration Mode</Link></li>
               <li><Link to="/learn" className="text-muted text-decoration-none">Learning Mode</Link></li>
             </ul>
           </div>
+          
           <div className="col-6 col-md-3">
             <h5 className="h6 fw-semibold mb-2">Resources</h5>
             <ul className="list-unstyled mb-0">
@@ -31,6 +34,7 @@ export function Footer() {
               <li><Link to="/help" className="text-muted text-decoration-none">Help Center</Link></li>
             </ul>
           </div>
+          
           <div className="col-6 col-md-3">
             <h5 className="h6 fw-semibold mb-2">Legal</h5>
             <ul className="list-unstyled mb-0">
@@ -39,6 +43,7 @@ export function Footer() {
             </ul>
           </div>
         </div>
+        
         <div className="border-top pt-3 mt-4 d-flex flex-column flex-md-row justify-content-between align-items-center">
           <p className="small text-muted mb-2 mb-md-0">
             &copy; {new Date().getFullYear()} TuneTogether. All rights reserved.

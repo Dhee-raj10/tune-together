@@ -1,3 +1,4 @@
+// src/pages/Explore.js - COMPLETE REPLACEMENT
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { Link } from "react-router-dom";
@@ -36,7 +37,7 @@ const Explore = () => {
 
             <div className="row g-4 justify-content-center">
               <div className="col-md-4">
-                <Card className="text-center p-4">
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <PersonCircle size={48} className="text-primary" />
                   </div>
@@ -45,7 +46,6 @@ const Explore = () => {
                     <Card.Text>
                       Create and manage your projects by yourself, including AI track suggestions.
                     </Card.Text>
-                    {/* FIX: Link to the new Solo Project Flow page */}
                     <Link to="/create/solo" className="btn btn-primary mt-3"> 
                       Start Solo Project
                     </Link>
@@ -54,7 +54,7 @@ const Explore = () => {
               </div>
 
               <div className="col-md-4">
-                <Card className="text-center p-4">
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <PeopleFill size={48} className="text-primary" />
                   </div>
@@ -63,8 +63,7 @@ const Explore = () => {
                     <Card.Text>
                       Find collaborators by role and send formal partnership requests.
                     </Card.Text>
-                    {/* FIX: Link to the Collaborator search page */}
-                    <Link to="/collaborate/find" className="btn btn-primary mt-3"> 
+                    <Link to="/find-collaborators" className="btn btn-primary mt-3"> 
                       Find Collaborators
                     </Link>
                   </Card.Body>
@@ -72,7 +71,7 @@ const Explore = () => {
               </div>
 
               <div className="col-md-4">
-                <Card className="text-center p-4">
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <BookFill size={48} className="text-primary" />
                   </div>

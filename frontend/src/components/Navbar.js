@@ -1,16 +1,14 @@
-// frontend/src/components/Navbar.js - COMPLETE REPLACEMENT
+// src/components/Navbar.js - COMPLETE REPLACEMENT
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useState, useEffect } from "react";
 import api from "../services/api";
-import { toast } from "../hooks/use-toast";
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [requestCount, setRequestCount] = useState(0);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -30,38 +28,17 @@ export const Navbar = () => {
   };
 
   const handleLogout = async () => {
-    if (isLoggingOut) return;
-    
     if (!window.confirm("Are you sure you want to logout?")) {
       return;
     }
     
-    setIsLoggingOut(true);
-    
     try {
       console.log('🚪 Logging out...');
-      
-      // Call logout from AuthContext (clears localStorage and state)
       await logout();
-      
-      toast({ 
-        title: "Logged out successfully", 
-        description: "See you next time!",
-        variant: 'success' 
-      });
-      
-      // Redirect to home page
-      navigate("/");
-      
+      navigate("/login");
     } catch (error) {
       console.error("❌ Error logging out:", error);
-      toast({ 
-        title: "Logout failed", 
-        description: "Please try again",
-        variant: 'error' 
-      });
-    } finally {
-      setIsLoggingOut(false);
+      alert("Logout failed. Please try again.");
     }
   };
 
@@ -135,7 +112,7 @@ export const Navbar = () => {
 
                 <li className="nav-item dropdown">
                   <button
-                    className="btn btn-link nav-link dropdown-toggle d-flex align-items-center"
+                    className="btn btn-link nav-link dropdown-toggle d-flex align-items-center text-white text-decoration-none"
                     id="profileDropdown"
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
@@ -154,10 +131,9 @@ export const Navbar = () => {
                       <button 
                         onClick={handleLogout} 
                         className="dropdown-item text-danger"
-                        disabled={isLoggingOut}
                       >
                         <i className="bi bi-box-arrow-right me-2"></i> 
-                        {isLoggingOut ? 'Logging out...' : 'Logout'}
+                        Logout
                       </button>
                     </li>
                   </ul>
