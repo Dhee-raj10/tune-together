@@ -11,7 +11,7 @@ const server = http.createServer(app);
 
 // CORS Configuration
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com/',
+  origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'x-auth-token', 'Authorization']
@@ -20,16 +20,22 @@ app.use(cors({
 // Socket.IO Configuration
 const io = socketIO(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com/',
+    origin: process.env.CLIENT_URL || 'https://tune-together-10.onrender.com',
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tune_together')
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+//const mongoose = require("mongoose");
+
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => {
+  console.log("✅ MongoDB connected");
+})
+.catch((err) => {
+  console.log("❌ MongoDB error:", err);
+});
 
 // Body Parser Middleware
 app.use(express.json());
@@ -86,7 +92,7 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 WebSocket server ready`);
-  console.log(`🌍 CORS enabled for: ${process.env.CLIENT_URL || 'https://tune-together-10.onrender.com/'}`);
+  console.log(`🌍 CORS enabled for: ${process.env.CLIENT_URL || 'https://tune-together-10.onrender.com'}`);
   console.log(`📁 Serving uploads from: ${path.join(__dirname, 'uploads')}`);
 });
 
