@@ -1,4 +1,4 @@
-// src/pages/HelpCenter.js
+// src/pages/HelpCenter.js - UPDATED (Email Support, No Live Chat)
 import React, { useState } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
@@ -46,6 +46,10 @@ const HelpCenter = () => {
       category: "Account & Settings",
       questions: [
         {
+          q: "How do I change my username?",
+          a: "Go to your Profile page, click 'Edit Profile', and you can update your username if it's available. No two users can have the same username."
+        },
+        {
           q: "How do I change my password?",
           a: "Go to your Profile page, click 'Settings', and select 'Change Password'. You'll need to verify your current password before setting a new one."
         },
@@ -89,6 +93,10 @@ const HelpCenter = () => {
       })).filter(category => category.questions.length > 0)
     : faqs;
 
+  const handleEmailSupport = () => {
+    window.location.href = "mailto:dheerajreddyalugubelli@gmail.com?subject=TuneTogether Support Request&body=Hi TuneTogether Team,%0D%0A%0D%0APlease describe your issue below:%0D%0A%0D%0A";
+  };
+
   return (
     <div className="d-flex flex-column min-vh-100">
       <Navbar />
@@ -111,7 +119,7 @@ const HelpCenter = () => {
 
         {/* Quick Links */}
         <div className="row g-3 mb-5">
-          <div className="col-md-3">
+          <div className="col-md-4">
             <Card className="text-center p-3 h-100 border-primary">
               <Card.Body>
                 <i className="bi bi-book display-6 text-primary"></i>
@@ -120,30 +128,25 @@ const HelpCenter = () => {
               </Card.Body>
             </Card>
           </div>
-          <div className="col-md-3">
-            <Card className="text-center p-3 h-100 border-success">
+          <div className="col-md-4">
+            <Card 
+              className="text-center p-3 h-100 border-success" 
+              style={{ cursor: 'pointer' }}
+              onClick={handleEmailSupport}
+            >
               <Card.Body>
-                <i className="bi bi-chat-dots display-6 text-success"></i>
-                <h6 className="mt-3">Contact Support</h6>
+                <i className="bi bi-envelope display-6 text-success"></i>
+                <h6 className="mt-3">Email Support</h6>
                 <p className="small text-muted mb-0">Get personalized help</p>
               </Card.Body>
             </Card>
           </div>
-          <div className="col-md-3">
+          <div className="col-md-4">
             <Card className="text-center p-3 h-100 border-info">
               <Card.Body>
                 <i className="bi bi-youtube display-6 text-info"></i>
                 <h6 className="mt-3">Video Tutorials</h6>
                 <p className="small text-muted mb-0">Learn by watching</p>
-              </Card.Body>
-            </Card>
-          </div>
-          <div className="col-md-3">
-            <Card className="text-center p-3 h-100 border-warning">
-              <Card.Body>
-                <i className="bi bi-people display-6 text-warning"></i>
-                <h6 className="mt-3">Community Forum</h6>
-                <p className="small text-muted mb-0">Connect with others</p>
               </Card.Body>
             </Card>
           </div>
@@ -178,16 +181,13 @@ const HelpCenter = () => {
             <p className="text-muted mb-4">
               Our support team is here to assist you
             </p>
-            <div className="d-flex justify-content-center gap-3">
-              <button className="btn btn-primary">
-                <i className="bi bi-envelope me-2"></i>
-                Email Support
-              </button>
-              <button className="btn btn-outline-primary">
-                <i className="bi bi-chat-left-text me-2"></i>
-                Live Chat
-              </button>
-            </div>
+            <button 
+              className="btn btn-primary btn-lg"
+              onClick={handleEmailSupport}
+            >
+              <i className="bi bi-envelope me-2"></i>
+              Email Support
+            </button>
           </Card.Body>
         </Card>
       </div>

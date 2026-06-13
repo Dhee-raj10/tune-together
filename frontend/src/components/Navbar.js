@@ -1,4 +1,4 @@
-// src/components/Navbar.js - COMPLETE REPLACEMENT
+// src/components/Navbar.js - FIXED LOGOUT BUTTON
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -116,8 +116,9 @@ export const Navbar = () => {
                     id="profileDropdown"
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
+                    style={{ border: 'none', background: 'transparent' }}
                   >
-                    <i className="bi bi-person-circle me-1"></i>
+                    <i className="bi bi-person-circle me-2"></i>
                     {user.username}
                   </button>
                   <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
@@ -131,6 +132,7 @@ export const Navbar = () => {
                       <button 
                         onClick={handleLogout} 
                         className="dropdown-item text-danger"
+                        style={{ border: 'none', background: 'transparent', width: '100%', textAlign: 'left' }}
                       >
                         <i className="bi bi-box-arrow-right me-2"></i> 
                         Logout

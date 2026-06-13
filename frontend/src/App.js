@@ -24,7 +24,6 @@ import CollaborationWorkspace from './pages/CollaborationWorkspace';
 // NEW PAGES
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
-import Blog from './pages/Blog';
 import HelpCenter from './pages/HelpCenter';
 import Tutorials from './pages/Tutorials';
 
@@ -77,7 +76,7 @@ const App = () => {
               <Route path="/about" element={<About />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/terms" element={<Terms />} />
-              <Route path="/blog" element={<Blog />} />
+              
               <Route path="/help" element={<HelpCenter />} />
               
               {/* 404 */}
