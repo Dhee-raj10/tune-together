@@ -1,6 +1,4 @@
-
 // frontend/src/pages/Explore.js - PURE BLACK THEME
-// src/pages/Explore.js - COMPLETE REPLACEMENT
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { Link } from "react-router-dom";
@@ -8,8 +6,35 @@ import { Card } from "react-bootstrap";
 import { PersonCircle, PeopleFill, BookFill } from "react-bootstrap-icons";
 
 const Explore = () => {
+  const cardStyle = {
+    background: 'rgba(0, 198, 209, 0.1)',
+    border: '2px solid #00C6D1',
+    borderRadius: '15px',
+    color: '#ffffff',
+    transition: 'all 0.3s ease'
+  };
+
+  const buttonStyle = {
+    background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
+    color: '#000000',
+    fontWeight: 'bold',
+    border: 'none',
+    width: '100%',
+    padding: '12px'
+  };
+
+  const handleMouseEnter = (e) => {
+    e.currentTarget.style.transform = 'scale(1.05)';
+    e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 198, 209, 0.4)';
+  };
+
+  const handleMouseLeave = (e) => {
+    e.currentTarget.style.transform = 'scale(1)';
+    e.currentTarget.style.boxShadow = 'none';
+  };
+
   return (
-    <div className="d-flex flex-column min-vh-100" style={{ 
+    <div className="d-flex flex-column min-vh-100" style={{
       background: '#000000',
       color: '#ffffff'
     }}>
@@ -46,23 +71,14 @@ const Explore = () => {
             </div>
 
             <div className="row g-4 justify-content-center">
+              {/* Solo Mode */}
               <div className="col-md-4">
-                <Card className="text-center p-4 h-100" style={{
-                  background: 'rgba(0, 198, 209, 0.1)',
-                  border: '2px solid #00C6D1',
-                  borderRadius: '15px',
-                  color: '#ffffff',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 198, 209, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}>
-                <Card className="text-center p-4 h-100">
+                <Card
+                  className="text-center p-4 h-100"
+                  style={cardStyle}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                >
                   <div className="text-center mb-3">
                     <PersonCircle size={64} style={{ color: '#00C6D1' }} />
                   </div>
@@ -71,37 +87,21 @@ const Explore = () => {
                     <Card.Text style={{ color: '#cccccc' }}>
                       Create and manage your projects by yourself, including AI track suggestions.
                     </Card.Text>
-                    <Link to="/create/solo" className="btn mt-3" style={{
-                      background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
-                      color: '#000000',
-                      fontWeight: 'bold',
-                      border: 'none',
-                      width: '100%',
-                      padding: '12px'
-                    }}>
-                    <Link to="/create/solo" className="btn btn-primary mt-3"> 
+                    <Link to="/create/solo" className="btn mt-3" style={buttonStyle}>
                       Start Solo Project
                     </Link>
                   </Card.Body>
                 </Card>
               </div>
+
+              {/* Collaboration Mode */}
               <div className="col-md-4">
-                <Card className="text-center p-4 h-100" style={{
-                  background: 'rgba(0, 198, 209, 0.1)',
-                  border: '2px solid #00C6D1',
-                  borderRadius: '15px',
-                  color: '#ffffff',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 198, 209, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}>
-                <Card className="text-center p-4 h-100">
+                <Card
+                  className="text-center p-4 h-100"
+                  style={cardStyle}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                >
                   <div className="text-center mb-3">
                     <PeopleFill size={64} style={{ color: '#00C6D1' }} />
                   </div>
@@ -110,38 +110,21 @@ const Explore = () => {
                     <Card.Text style={{ color: '#cccccc' }}>
                       Find collaborators by role and send formal partnership requests.
                     </Card.Text>
-                    <Link to="/find-collaborators" className="btn mt-3" style={{
-                      background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
-                      color: '#000000',
-                      fontWeight: 'bold',
-                      border: 'none',
-                      width: '100%',
-                      padding: '12px'
-                    }}>
-                    <Link to="/find-collaborators" className="btn btn-primary mt-3"> 
+                    <Link to="/find-collaborators" className="btn mt-3" style={buttonStyle}>
                       Find Collaborators
                     </Link>
                   </Card.Body>
                 </Card>
               </div>
 
+              {/* Learning Mode */}
               <div className="col-md-4">
-                <Card className="text-center p-4 h-100" style={{
-                  background: 'rgba(0, 198, 209, 0.1)',
-                  border: '2px solid #00C6D1',
-                  borderRadius: '15px',
-                  color: '#ffffff',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 15px 40px rgba(0, 198, 209, 0.4)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}>
-                <Card className="text-center p-4 h-100">
+                <Card
+                  className="text-center p-4 h-100"
+                  style={cardStyle}
+                  onMouseEnter={handleMouseEnter}
+                  onMouseLeave={handleMouseLeave}
+                >
                   <div className="text-center mb-3">
                     <BookFill size={64} style={{ color: '#00C6D1' }} />
                   </div>
@@ -150,14 +133,7 @@ const Explore = () => {
                     <Card.Text style={{ color: '#cccccc' }}>
                       Access educational modules and tutorials to improve your skills.
                     </Card.Text>
-                    <Link to="/learn" className="btn mt-3" style={{
-                      background: 'linear-gradient(135deg, #00C6D1 0%, #0099A8 100%)',
-                      color: '#000000',
-                      fontWeight: 'bold',
-                      border: 'none',
-                      width: '100%',
-                      padding: '12px'
-                    }}>
+                    <Link to="/learn" className="btn mt-3" style={buttonStyle}>
                       Start Learning
                     </Link>
                   </Card.Body>
