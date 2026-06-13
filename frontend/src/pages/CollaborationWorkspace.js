@@ -1,7 +1,4 @@
-// src/pages/CollaborationWorkspace.js
-// COPY THIS ENTIRE FILE - REPLACE EVERYTHING
-// At the top of CollaborationWorkspace.js
-import { SaveExitDialog } from './SaveExitDialog'; // Assuming correct path to the standalone component
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';

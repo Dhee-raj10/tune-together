@@ -1,4 +1,6 @@
+
 // frontend/src/pages/Explore.js - PURE BLACK THEME
+// src/pages/Explore.js - COMPLETE REPLACEMENT
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { Link } from "react-router-dom";
@@ -60,6 +62,7 @@ const Explore = () => {
                   e.currentTarget.style.transform = 'scale(1)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}>
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <PersonCircle size={64} style={{ color: '#00C6D1' }} />
                   </div>
@@ -76,12 +79,12 @@ const Explore = () => {
                       width: '100%',
                       padding: '12px'
                     }}>
+                    <Link to="/create/solo" className="btn btn-primary mt-3"> 
                       Start Solo Project
                     </Link>
                   </Card.Body>
                 </Card>
               </div>
-
               <div className="col-md-4">
                 <Card className="text-center p-4 h-100" style={{
                   background: 'rgba(0, 198, 209, 0.1)',
@@ -98,6 +101,7 @@ const Explore = () => {
                   e.currentTarget.style.transform = 'scale(1)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}>
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <PeopleFill size={64} style={{ color: '#00C6D1' }} />
                   </div>
@@ -114,6 +118,7 @@ const Explore = () => {
                       width: '100%',
                       padding: '12px'
                     }}>
+                    <Link to="/find-collaborators" className="btn btn-primary mt-3"> 
                       Find Collaborators
                     </Link>
                   </Card.Body>
@@ -136,6 +141,7 @@ const Explore = () => {
                   e.currentTarget.style.transform = 'scale(1)';
                   e.currentTarget.style.boxShadow = 'none';
                 }}>
+                <Card className="text-center p-4 h-100">
                   <div className="text-center mb-3">
                     <BookFill size={64} style={{ color: '#00C6D1' }} />
                   </div>

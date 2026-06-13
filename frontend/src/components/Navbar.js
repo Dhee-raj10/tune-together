@@ -1,4 +1,4 @@
-// src/components/Navbar.js
+// src/components/Navbar.js - FIXED LOGOUT BUTTON
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -28,11 +28,17 @@ export const Navbar = () => {
   };
 
   const handleLogout = async () => {
+    if (!window.confirm("Are you sure you want to logout?")) {
+      return;
+    }
+    
     try {
+      console.log('🚪 Logging out...');
       await logout();
-      navigate("/");
+      navigate("/login");
     } catch (error) {
-      console.error("Error signing out:", error);
+      console.error("❌ Error logging out:", error);
+      alert("Logout failed. Please try again.");
     }
   };
 
@@ -59,7 +65,7 @@ export const Navbar = () => {
         </button>
 
         <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ms-auto">
+          <ul className="navbar-nav ms-auto align-items-lg-center">
             {user ? (
               <>
                 <li className="nav-item">
@@ -70,6 +76,7 @@ export const Navbar = () => {
                     <i className="bi bi-compass me-1"></i> Explore
                   </Link>
                 </li>
+                
                 <li className="nav-item">
                   <Link
                     to="/my-projects"
@@ -78,6 +85,7 @@ export const Navbar = () => {
                     <i className="bi bi-folder me-1"></i> My Projects
                   </Link>
                 </li>
+                
                 <li className="nav-item">
                   <Link
                     to="/find-collaborators"
@@ -86,14 +94,31 @@ export const Navbar = () => {
                     <i className="bi bi-people me-1"></i> Collaborators
                   </Link>
                 </li>
+                
+                <li className="nav-item">
+                  <Link
+                    to="/requests"
+                    className={`nav-link position-relative ${isActive("/requests") ? "active" : ""}`}
+                  >
+                    <i className="bi bi-bell me-1"></i> Requests
+                    {requestCount > 0 && (
+                      <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        {requestCount}
+                        <span className="visually-hidden">unread messages</span>
+                      </span>
+                    )}
+                  </Link>
+                </li>
+
                 <li className="nav-item dropdown">
                   <button
-                    className="btn btn-link nav-link dropdown-toggle"
+                    className="btn btn-link nav-link dropdown-toggle d-flex align-items-center text-white text-decoration-none"
                     id="profileDropdown"
                     data-bs-toggle="dropdown"
                     aria-expanded="false"
+                    style={{ border: 'none', background: 'transparent' }}
                   >
-                    <i className="bi bi-person-circle me-1"></i>
+                    <i className="bi bi-person-circle me-2"></i>
                     {user.username}
                   </button>
                   <ul className="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
@@ -102,19 +127,15 @@ export const Navbar = () => {
                         <i className="bi bi-person me-2"></i> Profile
                       </Link>
                     </li>
-                    <li>
-                      <Link className="dropdown-item" to="/requests">
-                        <i className="bi bi-bell me-2"></i>
-                        Requests
-                        {requestCount > 0 && (
-                          <span className="badge bg-danger ms-2">{requestCount}</span>
-                        )}
-                      </Link>
-                    </li>
                     <li><hr className="dropdown-divider" /></li>
                     <li>
-                      <button onClick={handleLogout} className="dropdown-item text-danger">
-                        <i className="bi bi-box-arrow-right me-2"></i> Logout
+                      <button 
+                        onClick={handleLogout} 
+                        className="dropdown-item text-danger"
+                        style={{ border: 'none', background: 'transparent', width: '100%', textAlign: 'left' }}
+                      >
+                        <i className="bi bi-box-arrow-right me-2"></i> 
+                        Logout
                       </button>
                     </li>
                   </ul>

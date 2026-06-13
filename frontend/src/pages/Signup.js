@@ -1,31 +1,29 @@
+// frontend/src/pages/Signup.js - COMPLETE REPLACEMENT (Fixed Duplicate Roles)
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Form, Card } from "react-bootstrap";
-import { useAuth } from "../contexts/AuthContext";
 import { Eye, EyeSlash } from "react-bootstrap-icons";
+import { useAuth } from "../contexts/AuthContext";
 import api from "../services/api";
 import { toast } from "../hooks/use-toast";
 
-// ✅ Store clean names without emojis — only for UI display
+// ✅ Clean instrument names (no emojis in DB)
 const INSTRUMENTS_LIST = [
-  { name: 'Piano', icon: '🎹', display: '🎹 Piano' },
-  { name: 'Guitar', icon: '🎸', display: '🎸 Guitar' },
-  { name: 'Drums', icon: '🥁', display: '🥁 Drums' },
-  { name: 'Bass', icon: '🎸', display: '🎸 Bass' },
-  { name: 'Violin', icon: '🎻', display: '🎻 Violin' },
-  { name: 'Saxophone', icon: '🎷', display: '🎷 Saxophone' },
-  { name: 'Trumpet', icon: '🎺', display: '🎺 Trumpet' },
-  { name: 'Flute', icon: '🎶', display: '🎶 Flute' },
-  { name: 'Vocals', icon: '🎤', display: '🎤 Vocals' },
-  { name: 'Synthesizer', icon: '🎹', display: '🎹 Synthesizer' },
-  { name: 'Cello', icon: '🎻', display: '🎻 Cello' },
-  { name: 'Clarinet', icon: '🎶', display: '🎶 Clarinet' },
-  { name: 'Trombone', icon: '🎺', display: '🎺 Trombone' },
-  { name: 'Harp', icon: '🎵', display: '🎵 Harp' },
-  { name: 'Ukulele', icon: '🎸', display: '🎸 Ukulele' },
-  { name: 'Banjo', icon: '🎸', display: '🎸 Banjo' },
+  { name: 'Piano', display: '🎹 Piano' },
+  { name: 'Guitar', display: '🎸 Guitar' },
+  { name: 'Drums', display: '🥁 Drums' },
+  { name: 'Bass', display: '🎸 Bass' },
+  { name: 'Violin', display: '🎻 Violin' },
+  { name: 'Saxophone', display: '🎷 Saxophone' },
+  { name: 'Trumpet', display: '🎺 Trumpet' },
+  { name: 'Flute', display: '🎶 Flute' },
+  { name: 'Vocals', display: '🎤 Vocals' },
+  { name: 'Synthesizer', display: '🎹 Synthesizer' },
+  { name: 'Cello', display: '🎻 Cello' },
+  { name: 'Clarinet', display: '🎶 Clarinet' },
 ];
 
+// ✅ SINGLE set of musician roles
 const MUSICIAN_ROLES = [
   { value: 'drummer', label: '🥁 Drummer' },
   { value: 'guitarist', label: '🎸 Guitarist' },
@@ -40,18 +38,18 @@ const MUSICIAN_ROLES = [
 const Signup = () => {
   const [step, setStep] = useState(1);
 
-  // Step 1 — Account Info
+  // Step 1: Account Info
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Step 2 — Roles
+  // Step 2: Roles (SINGLE SELECTOR)
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [otherRole, setOtherRole] = useState("");
 
-  // Step 3 — Instruments
+  // Step 3: Instruments
   const [instruments, setInstruments] = useState([
     { instrument: "", skillLevel: "Intermediate", yearsExperience: 0, isPrimary: true },
   ]);
@@ -60,7 +58,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const { signup } = useAuth();
 
-  // ---------------- HANDLE STEP 1 ---------------- //
+  // ===== STEP 1: Create Account =====
   const handleStep1Submit = async (e) => {
     e.preventDefault();
 
@@ -90,12 +88,13 @@ const Signup = () => {
     }
   };
 
-  // ---------------- HANDLE STEP 2 ---------------- //
+  // ===== STEP 2: Select Roles =====
   const handleStep2Submit = async (e) => {
     e.preventDefault();
 
     const finalRoles = [...selectedRoles];
     if (otherRole.trim()) finalRoles.push(otherRole.trim());
+    
     if (finalRoles.length === 0) {
       toast({ title: "Select at least one role", variant: "error" });
       return;
@@ -105,6 +104,7 @@ const Signup = () => {
     try {
       const user = JSON.parse(localStorage.getItem("user"));
       await api.put(`/profiles/${user._id || user.id}/roles`, { roles: finalRoles });
+      
       toast({ title: "Roles saved!", variant: "success" });
       setStep(3);
     } catch (error) {
@@ -118,7 +118,7 @@ const Signup = () => {
     }
   };
 
-  // ---------------- HANDLE STEP 3 ---------------- //
+  // ===== STEP 3: Add Instruments =====
   const handleStep3Submit = async (e) => {
     e.preventDefault();
 
@@ -133,6 +133,7 @@ const Signup = () => {
       for (const inst of validInstruments) {
         await api.post("/musicians/my-instruments", inst);
       }
+      
       toast({
         title: "Profile setup complete!",
         description: `Added ${validInstruments.length} instruments`,
@@ -179,14 +180,12 @@ const Signup = () => {
     navigate("/explore");
   };
 
-  // ---------------- UI RENDER ---------------- //
   return (
     <div className="d-flex flex-column min-vh-100">
       <div className="d-flex flex-grow-1 align-items-center justify-content-center py-5">
         <div className="w-100 position-relative" style={{ maxWidth: 600, padding: "0 20px" }}>
           <Card>
-
-            {/* HEADER + STEPS */}
+            {/* PROGRESS STEPS */}
             <Card.Header>
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className={`badge ${step >= 1 ? "bg-primary" : "bg-secondary"}`}>1. Account</div>
@@ -203,12 +202,12 @@ const Signup = () => {
               </Card.Title>
               <Card.Text className="text-center text-muted">
                 {step === 1 && "Enter your details to get started"}
-                {step === 2 && "What best describes you?"}
+                {step === 2 && "What best describes you? (Select all that apply)"}
                 {step === 3 && "Add instruments you play"}
               </Card.Text>
             </Card.Header>
 
-            {/* STEP 1: Account */}
+            {/* ===== STEP 1: ACCOUNT ===== */}
             {step === 1 && (
               <Form onSubmit={handleStep1Submit}>
                 <Card.Body>
@@ -285,14 +284,15 @@ const Signup = () => {
               </Form>
             )}
 
-            {/* STEP 2: Roles */}
+            {/* ===== STEP 2: ROLES (SINGLE SELECTOR - NO DUPLICATES) ===== */}
             {step === 2 && (
               <Form onSubmit={handleStep2Submit}>
                 <Card.Body>
                   <p className="text-muted mb-3">
-                    Select roles to help musicians find you.
+                    Select all roles that describe you. This helps musicians find you.
                   </p>
 
+                  {/* ✅ SINGLE ROLE GRID */}
                   <div className="row g-2 mb-4">
                     {MUSICIAN_ROLES.map((role) => (
                       <div key={role.value} className="col-6">
@@ -322,6 +322,7 @@ const Signup = () => {
                     ))}
                   </div>
 
+                  {/* Other role input */}
                   <Form.Group>
                     <Form.Label>Other (specify):</Form.Label>
                     <Form.Control
@@ -338,18 +339,18 @@ const Signup = () => {
                     {isLoading ? "Saving..." : "Continue →"}
                   </Button>
                   <Button variant="outline-secondary" onClick={handleSkip} type="button">
-                    Skip
+                    Skip for Now
                   </Button>
                 </Card.Footer>
               </Form>
             )}
 
-            {/* STEP 3: Instruments */}
+            {/* ===== STEP 3: INSTRUMENTS ===== */}
             {step === 3 && (
               <Form onSubmit={handleStep3Submit}>
                 <Card.Body>
                   <p className="text-muted mb-3">
-                    Add the instruments you play.
+                    Add the instruments you play to help others find you.
                   </p>
 
                   {instruments.map((inst, index) => (
@@ -415,7 +416,7 @@ const Signup = () => {
                           <div className="col-12">
                             <Form.Check
                               type="checkbox"
-                              label="Primary Instrument"
+                              label="This is my primary instrument"
                               checked={inst.isPrimary}
                               onChange={(e) => updateInstrument(index, "isPrimary", e.target.checked)}
                             />
@@ -432,15 +433,14 @@ const Signup = () => {
 
                 <Card.Footer className="d-grid gap-2">
                   <Button type="submit" variant="success" disabled={isLoading}>
-                    {isLoading ? "Saving..." : "Finish 🎉"}
+                    {isLoading ? "Saving..." : "Finish Setup 🎉"}
                   </Button>
                   <Button variant="outline-secondary" onClick={handleSkip} type="button">
-                    Skip
+                    Skip for Now
                   </Button>
                 </Card.Footer>
               </Form>
             )}
-
           </Card>
         </div>
       </div>

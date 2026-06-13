@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { MusicianRoleSelector } from "./MusicianRoleSelector";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,9 +12,16 @@ export const UserProfile = ({ userId }) => {
   const [error, setError] = useState(null);
   const [isRoleSelectorOpen, setIsRoleSelectorOpen] = useState(false);
 
+  // Edit username state
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+
   // Instrument management
   const [myInstruments, setMyInstruments] = useState([]);
   const [showAddInstrument, setShowAddInstrument] = useState(false);
+  const [editingInstrument, setEditingInstrument] = useState(null);
   const [newInstrument, setNewInstrument] = useState({
     instrument: "",
     skillLevel: "Intermediate",
@@ -35,6 +43,7 @@ export const UserProfile = ({ userId }) => {
       try {
         const res = await api.get(`/profiles/${profileId}`);
         setProfile(res.data);
+        setNewUsername(res.data.username);
 
         if (isOwnProfile) {
           fetchMyInstruments();
@@ -60,6 +69,56 @@ export const UserProfile = ({ userId }) => {
       setMyInstruments(res.data.instruments || []);
     } catch (error) {
       console.error("Error fetching instruments:", error);
+    }
+  };
+
+  const checkUsernameAvailability = async (username) => {
+    if (username === profile.username) return true;
+    
+    setIsCheckingUsername(true);
+    try {
+      const res = await api.get(`/profiles?username=${username}`);
+      const exists = res.data.some(u => u.username === username);
+      setUsernameError(exists ? "Username already taken" : "");
+      return !exists;
+    } catch (error) {
+      console.error("Error checking username:", error);
+      return false;
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  };
+
+  const handleUsernameUpdate = async () => {
+    if (!newUsername.trim() || newUsername === profile.username) {
+      setIsEditingUsername(false);
+      return;
+    }
+
+    const isAvailable = await checkUsernameAvailability(newUsername);
+    if (!isAvailable) return;
+
+    try {
+      await api.put(`/profiles/${profile._id || profile.id}`, { 
+        username: newUsername 
+      });
+      
+      setProfile({ ...profile, username: newUsername });
+      
+      // Update local storage
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      storedUser.username = newUsername;
+      localStorage.setItem('user', JSON.stringify(storedUser));
+      
+      toast({ title: "Username updated successfully!", variant: "success" });
+      setIsEditingUsername(false);
+    } catch (error) {
+      console.error("Error updating username:", error);
+      toast({
+        title: "Failed to update username",
+        description: error.response?.data?.error,
+        variant: "error",
+      });
     }
   };
 
@@ -93,6 +152,18 @@ export const UserProfile = ({ userId }) => {
     }
   };
 
+  const handleUpdateInstrument = async (instrumentId, updates) => {
+    try {
+      await api.put(`/musicians/my-instruments/${instrumentId}`, updates);
+      toast({ title: "Instrument updated!", variant: "success" });
+      fetchMyInstruments();
+      setEditingInstrument(null);
+    } catch (error) {
+      console.error("Error updating instrument:", error);
+      toast({ title: "Failed to update instrument", variant: "error" });
+    }
+  };
+
   const handleDeleteInstrument = async (instrumentId) => {
     if (!window.confirm("Delete this instrument?")) return;
 
@@ -123,7 +194,57 @@ export const UserProfile = ({ userId }) => {
           style={{ width: 128, height: 128, objectFit: "cover" }}
         />
 
-        {profile.username && <h3>{profile.username}</h3>}
+        {/* Username Section */}
+        {isOwnProfile && isEditingUsername ? (
+          <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
+            <input
+              type="text"
+              className={`form-control form-control-sm ${usernameError ? 'is-invalid' : ''}`}
+              style={{ maxWidth: '200px' }}
+              value={newUsername}
+              onChange={(e) => {
+                setNewUsername(e.target.value);
+                if (e.target.value !== profile.username) {
+                  checkUsernameAvailability(e.target.value);
+                }
+              }}
+            />
+            <button 
+              className="btn btn-sm btn-success" 
+              onClick={handleUsernameUpdate}
+              disabled={isCheckingUsername || usernameError}
+            >
+              ✓
+            </button>
+            <button 
+              className="btn btn-sm btn-secondary" 
+              onClick={() => {
+                setIsEditingUsername(false);
+                setNewUsername(profile.username);
+                setUsernameError("");
+              }}
+            >
+              ✗
+            </button>
+          </div>
+        ) : (
+          <div className="d-flex justify-content-center align-items-center gap-2 mb-2">
+            <h3>{profile.username}</h3>
+            {isOwnProfile && (
+              <button
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setIsEditingUsername(true)}
+              >
+                <i className="bi bi-pencil"></i>
+              </button>
+            )}
+          </div>
+        )}
+        
+        {usernameError && (
+          <div className="text-danger small mb-2">{usernameError}</div>
+        )}
+        
         {profile.email && <p className="text-muted">{profile.email}</p>}
 
         {/* Roles */}
@@ -161,10 +282,10 @@ export const UserProfile = ({ userId }) => {
           </div>
 
           {showAddInstrument && (
-            <form className="mb-3" onSubmit={handleAddInstrument}>
+            <form className="mb-3 card p-3 bg-light" onSubmit={handleAddInstrument}>
               <label className="form-label">Instrument *</label>
               <select
-                className="form-select"
+                className="form-select mb-2"
                 value={newInstrument.instrument}
                 onChange={(e) => setNewInstrument({ ...newInstrument, instrument: e.target.value })}
                 required
@@ -186,7 +307,7 @@ export const UserProfile = ({ userId }) => {
 
               <label className="form-label mt-2">Skill Level</label>
               <select
-                className="form-select"
+                className="form-select mb-2"
                 value={newInstrument.skillLevel}
                 onChange={(e) => setNewInstrument({ ...newInstrument, skillLevel: e.target.value })}
               >
@@ -199,7 +320,7 @@ export const UserProfile = ({ userId }) => {
               <label className="form-label mt-2">Years Experience</label>
               <input
                 type="number"
-                className="form-control"
+                className="form-control mb-2"
                 min="0"
                 value={newInstrument.yearsExperience}
                 onChange={(e) => setNewInstrument({ ...newInstrument, yearsExperience: +e.target.value })}
@@ -232,17 +353,48 @@ export const UserProfile = ({ userId }) => {
             </div>
           ) : (
             myInstruments.map((inst) => (
-              <div key={inst._id} className="d-flex justify-content-between border-bottom py-2">
-                <div>
-                  <strong>{inst.instrument}</strong> {inst.isPrimary && <span className="badge bg-primary ms-1">Primary</span>}
-                  <br />
-                  <small>
-                    {inst.skillLevel} • {inst.yearsExperience} years
-                  </small>
-                </div>
-                <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteInstrument(inst._id)}>
-                  Delete
-                </button>
+              <div key={inst._id} className="card mb-2 p-3">
+                {editingInstrument === inst._id ? (
+                  <div>
+                    <select
+                      className="form-select mb-2"
+                      value={inst.skillLevel}
+                      onChange={(e) => handleUpdateInstrument(inst._id, { ...inst, skillLevel: e.target.value })}
+                    >
+                      <option>Beginner</option>
+                      <option>Intermediate</option>
+                      <option>Advanced</option>
+                      <option>Professional</option>
+                    </select>
+                    <input
+                      type="number"
+                      className="form-control mb-2"
+                      value={inst.yearsExperience}
+                      onChange={(e) => handleUpdateInstrument(inst._id, { ...inst, yearsExperience: +e.target.value })}
+                    />
+                    <button className="btn btn-sm btn-success me-2" onClick={() => setEditingInstrument(null)}>
+                      Done
+                    </button>
+                  </div>
+                ) : (
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>{inst.instrument}</strong> {inst.isPrimary && <span className="badge bg-primary ms-1">Primary</span>}
+                      <br />
+                      <small>
+                        {inst.skillLevel} • {inst.yearsExperience} years
+                      </small>
+                    </div>
+                    <div>
+                      <button className="btn btn-sm btn-outline-primary me-2" onClick={() => setEditingInstrument(inst._id)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteInstrument(inst._id)}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
